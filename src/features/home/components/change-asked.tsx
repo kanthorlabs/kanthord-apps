@@ -1,5 +1,5 @@
 import { RecordName } from "@/components/record-name";
-import { changeAskedOf } from "@/lib/board-change";
+import { changeAskedOf, requestLineOf } from "@/lib/board-change";
 
 import type { BoardReadsValue } from "../use-board-reads";
 import { BoardReadBlock } from "./board-read-block";
@@ -9,8 +9,10 @@ const LOG_BLOCK =
   "min-w-0 rounded-md bg-muted p-2 font-mono text-xs break-words whitespace-pre-wrap";
 
 export function ChangeAskedSection({ reads }: { readonly reads: BoardReadsValue }) {
+  const requestLine = requestLineOf(reads.session);
   return (
     <div className="flex flex-col gap-2">
+      {requestLine !== null && <p className={`text-sm ${TEXT_WIDTH}`}>{requestLine}</p>}
       <h4 className="text-sm font-semibold">Change asked</h4>
       <BoardReadBlock name="the session" read={reads.session} onRetry={reads.retry.session}>
         {(pending) => {

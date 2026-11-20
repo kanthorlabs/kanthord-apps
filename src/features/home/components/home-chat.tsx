@@ -16,10 +16,17 @@ interface HomeChatProps {
   readonly home: HomeState;
   readonly streamEnd: ReactNode;
   readonly approvalLine: ReactNode | null;
+  readonly onPendingApproval: (toolCallId: string | null) => void;
   readonly actionLineOf: (item: ActionCardItem) => ReactNode | null;
 }
 
-export function HomeChat({ home, streamEnd, approvalLine, actionLineOf }: HomeChatProps) {
+export function HomeChat({
+  home,
+  streamEnd,
+  approvalLine,
+  onPendingApproval,
+  actionLineOf,
+}: HomeChatProps) {
   const { view } = home;
 
   if (home.status === "loading") {
@@ -68,6 +75,7 @@ export function HomeChat({ home, streamEnd, approvalLine, actionLineOf }: HomeCh
       firstSendFailure={view.failure}
       streamEnd={streamEnd}
       approvalLine={approvalLine}
+      onPendingApproval={onPendingApproval}
       actionLineOf={actionLineOf}
       onNew={home.newChat}
       onForked={(forkSessionId) => home.open(forkSessionId, null)}

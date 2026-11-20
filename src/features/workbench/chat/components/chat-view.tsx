@@ -46,6 +46,7 @@ interface ChatViewProps {
   readonly firstSendFailure?: FirstSendFailure | null;
   readonly streamEnd?: ReactNode;
   readonly approvalLine?: ReactNode | null;
+  readonly onPendingApproval?: (toolCallId: string | null) => void;
   readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
   readonly onNew?: () => void;
   readonly onForked?: (forkSessionId: string) => void;
@@ -58,6 +59,7 @@ export function ChatView({
   firstSendFailure = null,
   streamEnd = null,
   approvalLine = null,
+  onPendingApproval,
   actionLineOf,
   onNew,
   onForked,
@@ -108,6 +110,10 @@ export function ChatView({
     (enabled: boolean) => patchSnapshot({ auto_mode: enabled }),
     [patchSnapshot],
   );
+  const pendingToolCallId = snapshot.pending_approval?.tool_call_id ?? null;
+  useEffect(() => {
+    onPendingApproval?.(pendingToolCallId);
+  }, [onPendingApproval, pendingToolCallId]);
   const hostDisplayName = memberOf(events.members, session.id).display_name;
   const variantBase =
     session.variant_id === null ? null : mentionAgents.displayNameOf(session.agent_name);

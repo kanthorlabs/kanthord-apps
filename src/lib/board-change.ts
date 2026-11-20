@@ -1,5 +1,8 @@
 import type { WorkbenchPendingApproval } from "@/api/types";
 
+import type { DetailRead } from "./attention";
+import { guestRequestLineOf } from "./guard-line";
+
 export interface ChangeRow {
   readonly field: string;
   readonly label: string;
@@ -26,4 +29,11 @@ export function changeAskedOf(pending: WorkbenchPendingApproval | null): ChangeA
     operationId: pending.operation_id,
     rows: Object.entries(pending.input).map(([field, value]) => rowOf(field, value)),
   };
+}
+
+export function requestLineOf(
+  read: DetailRead<WorkbenchPendingApproval | null> | null,
+): string | null {
+  if (read === null || read.status === "failed" || read.data === null) return null;
+  return guestRequestLineOf(read.data);
 }

@@ -1871,6 +1871,28 @@ describe("HomeScreen queue line", () => {
     expect(await within(primary).findByRole("button", { name: "Approve" })).toBeVisible();
   });
 
+  it("reads the session list once more when the stream holds an approval the deck does not hold", async () => {
+    serve({ yumi: "on", sessions: [opsSession("workbench_session_Y1")] });
+    pendingApproval();
+    const waiting = opsSession("workbench_session_Y1", {
+      run_active: true,
+      pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
+    });
+    const deckReads: number[] = [];
+    vi.mocked(listWorkbenchSessions).mockImplementation(async (agentName) => {
+      if (agentName !== null) return [opsSession("workbench_session_Y1")];
+      deckReads.push(deckReads.length);
+      return deckReads.length === 1 ? [opsSession("workbench_session_Y1")] : [waiting];
+    });
+    renderScreen();
+
+    const line = await screen.findByText(/in your queue\.$/, { selector: "span" });
+
+    expect(line.parentElement).toHaveTextContent(`${GENERAL} is #1 in your queue.`);
+    expect(screen.queryByRole("group", { name: "Approval Required" })).toBeNull();
+    expect(deckReads).toHaveLength(2);
+  });
+
   it("leaves the chat unchanged for the approval of another conversation", async () => {
     serve({
       yumi: "on",
