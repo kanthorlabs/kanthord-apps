@@ -39,9 +39,7 @@ export function JoinScreen() {
           >
             <FieldGroup>
               <Field data-invalid={nameError !== null}>
-                <FieldLabel htmlFor="join-name">
-                  Your name (prefilled from the invite, you can change it)
-                </FieldLabel>
+                <FieldLabel htmlFor="join-name">{join.nameLabel}</FieldLabel>
                 <Input
                   id="join-name"
                   autoComplete="off"

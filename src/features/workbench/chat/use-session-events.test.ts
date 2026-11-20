@@ -339,7 +339,7 @@ describe("useSessionEvents", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    expect(result.current.failure).toBe("The daemon did not answer.");
+    expect(result.current.failure).toBeNull();
     expect(workbenchApi.readWorkbenchEvents).toHaveBeenCalledTimes(1);
 
     await act(async () => {
@@ -349,6 +349,49 @@ describe("useSessionEvents", () => {
     expect(workbenchApi.readWorkbenchEvents).toHaveBeenCalledTimes(3);
     expect(result.current.failure).toBeNull();
     expect(result.current.entries.map((held) => held.id)).toEqual(["e1"]);
+  });
+
+  it("shows no failure for one unreachable read that the next read recovers", async () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents)
+      .mockRejectedValueOnce(new ApiError("unreachable", "The daemon did not answer.", 0))
+      .mockResolvedValueOnce({
+        entries: [],
+        members: [HOST],
+        snapshot: IDLE,
+        scope_requests: [],
+        version: 1,
+      })
+      .mockImplementation(never);
+    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.failure).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(EVENTS_BACKOFF_MS);
+    });
+
+    expect(result.current.failure).toBeNull();
+    expect(result.current.snapshotLoaded).toBe(true);
+  });
+
+  it("shows the failure from the second unreachable read in a row", async () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents)
+      .mockRejectedValueOnce(new ApiError("unreachable", "The daemon did not answer.", 0))
+      .mockRejectedValueOnce(new ApiError("unreachable", "The daemon did not answer.", 0))
+      .mockImplementation(never);
+    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.failure).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(EVENTS_BACKOFF_MS);
+    });
+
+    expect(result.current.failure).toBe("The daemon did not answer.");
   });
 
   it("stops after a failure that no retry can fix", async () => {
@@ -362,6 +405,20 @@ describe("useSessionEvents", () => {
     });
 
     expect(result.current.failure).toBe("The workbench session does not exist.");
+    expect(workbenchApi.readWorkbenchEvents).toHaveBeenCalledTimes(1);
+  });
+
+  it("sets the failure at once and reads no more after unauthorized", async () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents).mockRejectedValue(
+      new ApiError("unauthorized", "The token is not valid.", 401),
+    );
+
+    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(EVENTS_BACKOFF_MS * 3);
+    });
+
+    expect(result.current.failure).toBe("The token is not valid.");
     expect(workbenchApi.readWorkbenchEvents).toHaveBeenCalledTimes(1);
   });
 

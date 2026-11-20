@@ -1,11 +1,12 @@
 import type { Options } from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { MarkdownText } from "@/components/markdown-text";
 import { workbenchPathsIn } from "@/lib/workbench-chat";
 import { remarkWorkbenchPaths } from "@/lib/workbench-path-links";
 import { openWorkbenchUrl, workbenchUrl } from "./workbench-url";
 
-const REMARK_PLUGINS = [remarkWorkbenchPaths];
+const REMARK_PLUGINS = [remarkGfm, remarkWorkbenchPaths];
 
 function isWorkbenchPath(href: string): boolean {
   const [match] = workbenchPathsIn(href);

@@ -8,6 +8,8 @@ import { type GuestSessionState, useGuestSession } from "./use-guest-session";
 
 const NAME_INVALID = "workbench.invite.name_invalid";
 const NAME_MAX_CHARACTERS = 64;
+const NAME_LABEL = "Your name";
+const NAME_LABEL_PREFILLED = "Your name (prefilled from the invite, you can change it)";
 const NAME_REQUIRED = "Enter a name of 1 to 64 characters.";
 
 export interface JoinFailure {
@@ -18,6 +20,7 @@ export interface JoinFailure {
 export interface JoinState {
   readonly session: GuestSessionState;
   readonly name: string;
+  readonly nameLabel: string;
   readonly setName: (value: string) => void;
   readonly nameError: JoinFailure | string | null;
   readonly failure: JoinFailure | null;
@@ -42,7 +45,8 @@ function failureOf(error: ApiError): JoinFailure {
 export function useJoin(token: string): JoinState {
   const session = useGuestSession(false);
   const { store } = session;
-  const [name, setNameValue] = useState(nameFromFragment);
+  const [fragmentName] = useState(nameFromFragment);
+  const [name, setNameValue] = useState(fragmentName);
   const [nameError, setNameError] = useState<JoinFailure | string | null>(null);
   const [failure, setFailure] = useState<JoinFailure | null>(null);
   const [pending, setPending] = useState(false);
@@ -77,5 +81,7 @@ export function useJoin(token: string): JoinState {
     }
   }, [name, token, store]);
 
-  return { session, name, setName, nameError, failure, pending, submit };
+  const nameLabel = fragmentName.trim() === "" ? NAME_LABEL : NAME_LABEL_PREFILLED;
+
+  return { session, name, nameLabel, setName, nameError, failure, pending, submit };
 }

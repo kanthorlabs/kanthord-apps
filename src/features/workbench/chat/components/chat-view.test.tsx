@@ -848,15 +848,19 @@ describe("ChatView", () => {
   });
 
   it("says that the connection failed while the long poll retries", async () => {
-    vi.mocked(workbenchApi.readWorkbenchEvents).mockRejectedValueOnce(
-      new ApiError("unreachable", "The daemon did not answer.", 0),
-    );
+    vi.mocked(workbenchApi.readWorkbenchEvents)
+      .mockRejectedValueOnce(new ApiError("unreachable", "The daemon did not answer.", 0))
+      .mockRejectedValueOnce(new ApiError("unreachable", "The daemon did not answer.", 0));
     vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
       () => new Promise(() => undefined),
     );
     mount(session());
 
-    expect(await screen.findByText(/The daemon did not answer\. Trying again\./)).toBeTruthy();
+    expect(
+      await screen.findByText(/The daemon did not answer\. Trying again\./, undefined, {
+        timeout: 3000,
+      }),
+    ).toBeTruthy();
   });
 
   it("renders a Workbench path in agent text as a link", () => {
