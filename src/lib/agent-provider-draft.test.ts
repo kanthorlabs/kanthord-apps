@@ -5,6 +5,7 @@ import {
   agentProviderBodyOf,
   missingAgentProviderFields,
   nameAfterCredentialPick,
+  pinnedCredentialBodyOf,
   providerNameOfCredential,
   providerRemovalBlock,
   unusedProviderCredentials,
@@ -178,5 +179,52 @@ describe("nameAfterCredentialPick", () => {
 
   it("keeps a name that the human typed", () => {
     expect(nameAfterCredentialPick("mine", "router", "codex")).toBe("mine");
+  });
+});
+
+describe("pinnedCredentialBodyOf", () => {
+  const TAKEN: AgentEnablement = {
+    ...ENABLEMENT,
+    agent_providers: [
+      ...ENABLEMENT.agent_providers,
+      { name: CODEX.name, provider: "github-copilot", credential: "github--copilot-other" },
+    ],
+  };
+
+  it("answers a field error and no body when an agent provider holds the credential name", () => {
+    const result = pinnedCredentialBodyOf(TAKEN, CODEX.name, "claude-sonnet-5", [CODEX]);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.errors.credential).toContain(CODEX.name);
+  });
+
+  it("adds one agent provider and names it in the default configuration", () => {
+    const result = pinnedCredentialBodyOf(ENABLEMENT, CODEX.name, "claude-sonnet-5", [CODEX]);
+
+    expect(result.ok && result.body).toEqual({
+      expected_revision: 3,
+      agent_providers: [
+        ...ENABLEMENT.agent_providers,
+        { name: CODEX.name, provider: "openai-codex", credential: CODEX.name },
+      ],
+      default_configuration: {
+        agent_provider: CODEX.name,
+        model_identifier: "claude-sonnet-5",
+        reasoning_effort: "off",
+      },
+      fallback_configurations: [],
+    });
+  });
+
+  it("keeps the agent providers when an agent provider already names the credential", () => {
+    const result = pinnedCredentialBodyOf(
+      ENABLEMENT,
+      "github--copilot-elsa",
+      "claude-sonnet-5",
+      [],
+    );
+
+    expect(result.ok && result.body.agent_providers).toEqual(ENABLEMENT.agent_providers);
+    expect(result.ok && result.body.default_configuration.agent_provider).toBe("copilot");
   });
 });

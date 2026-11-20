@@ -332,7 +332,7 @@ describe("deckListOf", () => {
 
 describe("queueEntryOf", () => {
   const approval = (sessionId: string, at: number): ToolApprovalItem => ({
-    id: `tool_approval:${sessionId}`,
+    id: `tool_approval:${sessionId}:call_1`,
     group: "decisions",
     kind: "tool_approval",
     subject: `Chat ${sessionId}`,
@@ -347,9 +347,19 @@ describe("queueEntryOf", () => {
     const order = [approval("s1", 1), approval("s2", 2)];
 
     expect(queueEntryOf(order, "s2")).toEqual({
-      id: "tool_approval:s2",
+      id: "tool_approval:s2:call_1",
       subject: "Chat s2",
       rank: 2,
+    });
+  });
+
+  it("finds the item of the session whatever its tool call id", () => {
+    const item = { ...approval("s1", 1), id: "tool_approval:s1:call_7", toolCallId: "call_7" };
+
+    expect(queueEntryOf([item], "s1")).toEqual({
+      id: "tool_approval:s1:call_7",
+      subject: "Chat s1",
+      rank: 1,
     });
   });
 

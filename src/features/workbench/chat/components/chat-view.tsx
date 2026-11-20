@@ -24,6 +24,7 @@ import { useComposer } from "../use-composer";
 import { useElapsedSeconds } from "../use-elapsed-seconds";
 import { useInvites } from "../use-invites";
 import { useMentionAgents } from "../use-mention-agents";
+import { usePendingApprovalReport } from "../use-pending-approval-report";
 import { useSessionEvents } from "../use-session-events";
 import { useStopConfirm } from "../use-stop-confirm";
 import { AgentWorking } from "./agent-working";
@@ -46,6 +47,7 @@ interface ChatViewProps {
   readonly firstSendFailure?: FirstSendFailure | null;
   readonly streamEnd?: ReactNode;
   readonly approvalLine?: ReactNode | null;
+  readonly onPendingApproval?: (toolCallId: string | null) => void;
   readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
   readonly onNew?: () => void;
   readonly onForked?: (forkSessionId: string) => void;
@@ -58,6 +60,7 @@ export function ChatView({
   firstSendFailure = null,
   streamEnd = null,
   approvalLine = null,
+  onPendingApproval,
   actionLineOf,
   onNew,
   onForked,
@@ -108,6 +111,7 @@ export function ChatView({
     (enabled: boolean) => patchSnapshot({ auto_mode: enabled }),
     [patchSnapshot],
   );
+  usePendingApprovalReport(snapshot, onPendingApproval);
   const hostDisplayName = memberOf(events.members, session.id).display_name;
   const variantBase =
     session.variant_id === null ? null : mentionAgents.displayNameOf(session.agent_name);

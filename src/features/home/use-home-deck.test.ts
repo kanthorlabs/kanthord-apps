@@ -3,6 +3,7 @@ import type { KeyboardEvent, PointerEvent } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Project } from "@/api/types";
+import { approvalItemsOf, type ToolApprovalItem } from "@/lib/approval-attention";
 import type { AttentionItem } from "@/lib/attention";
 import { deckRowTextOf } from "@/lib/deck-card";
 import type { FixAttentionItem } from "@/lib/fix-attention";
@@ -30,6 +31,31 @@ function fix(id: string, at: number): FixAttentionItem {
     cause: "Project paused",
     nodeIds: [],
   };
+}
+
+function approval(toolCallId: string, at: number): ToolApprovalItem {
+  const [item] = approvalItemsOf([
+    {
+      id: "s",
+      host_session_id: null,
+      agent_name: "ops@1",
+      variant_id: null,
+      display_name: "Ops",
+      name: "Chat s",
+      created: 1,
+      modified: at,
+      message_count: 2,
+      first_message: "Create it",
+      run_active: true,
+      forked_from: null,
+      pending_approval: { tool_call_id: toolCallId, operation_id: "project.create" },
+      scope_requests: 0,
+      notice: null,
+      participants: [],
+    },
+  ]);
+  if (item === undefined) throw new Error("no approval item");
+  return item;
 }
 
 const HELD = new Map<string, readonly string[]>();
@@ -90,6 +116,35 @@ describe("useHomeDeck cursor", () => {
     expect(idsOf(result.current.order)).toEqual(["c", "a", "b"]);
   });
 
+  it("starts at rank 1 when the first ready render holds one item and the loaded render ranks three above it", () => {
+    const x = fix("x", 500);
+    const unloaded = { ...inputOf([x]), loaded: false };
+    const { result, rerender } = renderHook((props: HomeDeckInput) => useHomeDeck(props), {
+      initialProps: unloaded,
+    });
+    expect(result.current.primary?.id).toBe("x");
+
+    rerender(inputOf([x, fix("a", 100), fix("b", 200), fix("c", 300)]));
+
+    expect(result.current.primary?.id).toBe("a");
+    expect(result.current.countText).toMatch(/^1 of 4 waiting/);
+
+    rerender(inputOf([x, fix("a", 100), fix("b", 200), fix("c", 300), fix("d", 50)]));
+    expect(result.current.primary?.id).toBe("a");
+  });
+
+  it("keeps the cursor on the rank 2 item after the person steps and a read adds an item above", () => {
+    const items = [fix("a", 100), fix("b", 200), fix("c", 300)];
+    const { result, rerender } = mount(items);
+    act(() => result.current.step(1));
+    expect(result.current.primary?.id).toBe("b");
+
+    rerender({ ...inputOf([...items, fix("d", 50)]), loaded: false });
+
+    expect(result.current.primary?.id).toBe("b");
+    expect(result.current.rank).toBe(3);
+  });
+
   it("moves the cursor with step and changes no item, and stops at both ends", () => {
     const { result } = mount([fix("a", 100), fix("b", 200), fix("c", 300)]);
     const before = idsOf(result.current.order);
@@ -121,6 +176,25 @@ describe("useHomeDeck cursor", () => {
 
     expect(result.current.primary?.id).toBe("c");
     expect(result.current.list).toBeNull();
+  });
+});
+
+describe("useHomeDeck tool approvals", () => {
+  it("shows the next approval of a session whose earlier approval the deck settled", () => {
+    const callA = approval("call_a", 100);
+    const other = fix("o", 300);
+    const { result, rerender } = mount([callA, other]);
+
+    act(() => result.current.markActed(callA.id));
+    advance(DECK_EXIT_MS);
+    expect(idsOf(result.current.order)).toEqual([other.id]);
+
+    const callB = approval("call_b", 200);
+    rerender(inputOf([callB, other]));
+
+    expect(idsOf(result.current.order)).toEqual([callB.id, other.id]);
+    expect(result.current.primary?.id).toBe(other.id);
+    expect(result.current.countText).toMatch(/^2 of 2 waiting/);
   });
 });
 

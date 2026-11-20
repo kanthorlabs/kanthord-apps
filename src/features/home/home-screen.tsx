@@ -24,6 +24,7 @@ import { NoticeLine } from "./components/notice-line";
 import { QueueLine } from "./components/queue-line";
 import { ReadFaultsAlert } from "./components/read-faults-alert";
 import { SystemHealthAlert } from "./components/system-health-alert";
+import { useApprovalQueueRefresh } from "./use-approval-queue-refresh";
 import { useAskYumi } from "./use-ask-yumi";
 import { useHome } from "./use-home";
 import { useHomeDeck } from "./use-home-deck";
@@ -52,6 +53,7 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
   const askYumi = useAskYumi(home);
   const deckRef = useRef<HTMLDivElement>(null);
   const queued = queueEntryOf(deck.order, home.sessionId);
+  const onPendingApproval = useApprovalQueueRefresh({ overview, queued });
   const showQueued = (itemId: string) => {
     deck.select(itemId);
     deckRef.current?.focus();
@@ -142,6 +144,7 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
       <HomeChat
         home={home}
         approvalLine={queued === null ? null : <QueueLine entry={queued} onShow={showQueued} />}
+        onPendingApproval={onPendingApproval}
         actionLineOf={actionLineOf}
         streamEnd={streamEnd}
       />

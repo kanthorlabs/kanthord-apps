@@ -2622,6 +2622,7 @@ export const GUEST_STREAM_STATE_DELAY_MS = 300;
 export const GUEST_STREAM_ENTRIES_DELAY_MS = 900;
 
 export const VARIANT_CONVERSATION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0VQ1";
+export const GUEST_APPROVAL_CONVERSATION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0GA1";
 
 export const WORKBENCH_SESSIONS = [
   {
@@ -2890,6 +2891,51 @@ export const WORKBENCH_SESSIONS = [
         parentId: "e0000301",
         timestamp: entryAt(5761),
         message: textMessage("assistant", "The node is blocked by an unmet criterion."),
+      },
+    ],
+  },
+  {
+    id: GUEST_APPROVAL_CONVERSATION_ID,
+    host_session_id: null,
+    agent_name: "ops@1",
+    created: SESSION_BASE + 3 * 86400000 + 7200000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    approval: {
+      tool_call_id: "call_guest_approval_01",
+      operation_id: "project.create",
+      requested_by: { kind: "guest", name: "Anna" },
+      input: { name: "guest-checkout" },
+      guard: { cause: "guest_run", reason: null, confidence: null },
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000701",
+        parentId: null,
+        timestamp: entryAt(4000),
+        message: { role: "user", content: "Create the project guest-checkout" },
+      },
+      {
+        type: "message",
+        id: "e0000702",
+        parentId: "e0000701",
+        timestamp: entryAt(4001),
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "I create the project now." },
+            {
+              type: "toolCall",
+              id: "call_guest_approval_01",
+              name: "project.create",
+              arguments: { name: "guest-checkout" },
+            },
+          ],
+        },
       },
     ],
   },

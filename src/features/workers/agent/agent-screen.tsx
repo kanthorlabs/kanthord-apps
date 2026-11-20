@@ -15,7 +15,7 @@ import { agentReadFailure } from "@/api/agent-read-failure";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { GUARD_CLASS_FACTS, toolUndoText } from "@/lib/agent-tools";
-import { providerRemovalBlock } from "@/lib/agent-provider-draft";
+import { credentialOfDefaultProvider, providerRemovalBlock } from "@/lib/agent-provider-draft";
 import { AgentPromptCard } from "./components/agent-prompt-card";
 import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
 import { AgentProviderSheet } from "./components/agent-provider-sheet";
@@ -237,6 +237,8 @@ function EnablementSection({
               </dd>
               {pinnedModelIdentifier !== null ? (
                 <>
+                  <dt className="text-muted-foreground">Credential</dt>
+                  <dd className="font-mono break-all">{credentialOfDefaultProvider(enablement)}</dd>
                   <dt className="text-muted-foreground">Pinned model</dt>
                   <dd className="font-mono break-all">{pinnedModelIdentifier}</dd>
                 </>

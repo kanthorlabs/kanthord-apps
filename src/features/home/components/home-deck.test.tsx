@@ -269,10 +269,18 @@ function mount(overview: OverviewState) {
   render(<Harness overview={overview} />);
 }
 
-function pendingApproval(input: Record<string, unknown>): WorkbenchSessionEvents {
+function pendingApproval(
+  input: Record<string, unknown>,
+  requestedBy: { kind: "owner" | "guest"; name: string } = { kind: "owner", name: "Ulrich" },
+): WorkbenchSessionEvents {
   return {
     snapshot: {
-      pending_approval: { tool_call_id: "c1", operation_id: "project.create", input },
+      pending_approval: {
+        tool_call_id: "c1",
+        operation_id: "project.create",
+        input,
+        requested_by: requestedBy,
+      },
     },
   } as unknown as WorkbenchSessionEvents;
 }
@@ -596,6 +604,29 @@ describe("HomeDeck acts", () => {
 
     expect(within(sheet).getByRole("button", { name: "Reject" })).toBeVisible();
     expect(within(sheet).getByRole("button", { name: "Open chat" })).toBeVisible();
+  });
+
+  it("shows the guest request line above Change asked for a run that a guest started", async () => {
+    vi.mocked(readWorkbenchEvents).mockResolvedValue(
+      pendingApproval({ name: "Atlas" }, { kind: "guest", name: "Anna" }),
+    );
+    mount(overviewOf([APPROVAL]));
+
+    const line = await screen.findByText("Requested in a run started by Anna (guest)");
+    expect(line).toBeVisible();
+    expect(line.compareDocumentPosition(screen.getByText("Change asked"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it("shows no request line for a run that the owner started", async () => {
+    vi.mocked(readWorkbenchEvents).mockResolvedValue(
+      pendingApproval({ name: "Atlas" }, { kind: "owner", name: "Ulrich" }),
+    );
+    mount(overviewOf([APPROVAL]));
+
+    expect(await screen.findByText("name becomes")).toBeVisible();
+    expect(screen.queryByText(/Requested in a run started by/)).toBeNull();
   });
 
   it("titles the deck card of an evidence approval Evidence read", () => {

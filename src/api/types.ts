@@ -1698,6 +1698,7 @@ export interface WorkbenchActionOffer {
   readonly seen:
     | { readonly name: string; readonly state: NodeState; readonly attempt: number }
     | { readonly name: string; readonly paused: boolean }
+    | { readonly name: string; readonly revision: number }
     | { readonly revision: number }
     | { readonly version: number };
 }

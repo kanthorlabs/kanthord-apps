@@ -1255,6 +1255,8 @@ describe("AgentScreen", () => {
       platform: "anthropic",
     };
 
+    const SPARE: Credential = { ...ANTHROPIC, name: "spare-anthropic" };
+
     const GUARD_CALL_PART = {
       ...RE.prompt.parts![1]!,
       origin: "binary" as const,
@@ -1366,9 +1368,96 @@ describe("AgentScreen", () => {
       expect(
         within(screen.getByRole("list", { name: "Agent providers" })).getByText("lab-anthropic"),
       ).toBeTruthy();
+      expect(screen.getByText("Credential").nextElementSibling?.textContent).toBe("lab-anthropic");
       expect(screen.getByRole("button", { name: /^Verify/ })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Edit default" })).toBeNull();
       expect(screen.queryByText("Default reasoning effort")).toBeNull();
+    });
+
+    describe("with one provider", () => {
+      const ONE = {
+        agent_name: "guard@1",
+        state: "enabled" as const,
+        agent_providers: [
+          {
+            name: "anthropic-guard",
+            provider: "anthropic" as const,
+            credential: "anthropic-guard",
+          },
+        ],
+        default_configuration: {
+          agent_provider: "anthropic-guard",
+          model_identifier: "claude-sonnet-5",
+          reasoning_effort: "off" as const,
+        },
+        fallback_configurations: [],
+        revision: 1,
+      };
+      const GUARD_CREDENTIAL: Credential = { ...ANTHROPIC, name: "anthropic-guard" };
+      const NEW_CREDENTIAL: Credential = { ...ANTHROPIC, name: "anthropic-new" };
+
+      beforeEach(() => {
+        vi.mocked(workersApi.readAgent).mockResolvedValue({ ...GUARD, enablement: ONE });
+        vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([
+          GUARD_CREDENTIAL,
+          NEW_CREDENTIAL,
+        ]);
+        vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({ ...ONE, revision: 2 });
+      });
+
+      it("labels the field LLM credential and lists every LLM credential of an agent provider kind", async () => {
+        mount();
+
+        await userEvent.click(await screen.findByRole("button", { name: "Change credential" }));
+        const sheet = await screen.findByRole("dialog");
+        await userEvent.click(within(sheet).getByRole("combobox", { name: "LLM credential" }));
+
+        expect(
+          await screen.findByRole("option", { name: "anthropic-guard (anthropic)" }),
+        ).toBeTruthy();
+        expect(screen.getByRole("option", { name: "anthropic-new (anthropic)" })).toBeTruthy();
+        expect(within(sheet).queryByText("Agent Provider")).toBeNull();
+        expect(credentialsApi.listAllCredentials).toHaveBeenCalledWith("llm");
+      });
+
+      it("adds the agent provider of another credential and names it in the default", async () => {
+        mount();
+
+        await userEvent.click(await screen.findByRole("button", { name: "Change credential" }));
+        const sheet = await screen.findByRole("dialog");
+        await choose("LLM credential", "anthropic-new (anthropic)");
+        await userEvent.click(within(sheet).getByRole("button", { name: "Save credential" }));
+
+        expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("guard@1", {
+          expected_revision: 1,
+          agent_providers: [
+            ...ONE.agent_providers,
+            { name: "anthropic-new", provider: "anthropic", credential: "anthropic-new" },
+          ],
+          default_configuration: {
+            agent_provider: "anthropic-new",
+            model_identifier: "claude-sonnet-5",
+            reasoning_effort: "off",
+          },
+          fallback_configurations: [],
+        });
+      });
+
+      it("saves the same agent providers for the current credential", async () => {
+        mount();
+
+        await userEvent.click(await screen.findByRole("button", { name: "Change credential" }));
+        const sheet = await screen.findByRole("dialog");
+        await userEvent.click(within(sheet).getByRole("button", { name: "Save credential" }));
+
+        expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("guard@1", {
+          expected_revision: 1,
+          agent_providers: ONE.agent_providers,
+          default_configuration: ONE.default_configuration,
+          fallback_configurations: [],
+        });
+        expect(screen.queryByRole("button", { name: "Add agent provider" })).toBeNull();
+      });
     });
 
     it("shows Change credential and Verify and no Disable, Add agent provider or Remove", async () => {
@@ -1413,6 +1502,7 @@ describe("AgentScreen", () => {
         revision: 1,
       };
       vi.mocked(workersApi.readAgent).mockResolvedValue({ ...GUARD, enablement: enabled });
+      vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ANTHROPIC, SPARE]);
       vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({ ...enabled, revision: 2 });
       mount();
 
@@ -1420,7 +1510,7 @@ describe("AgentScreen", () => {
       const sheet = await screen.findByRole("dialog");
       expect(within(sheet).queryByRole("combobox", { name: "Model Identifier" })).toBeNull();
       expect(within(sheet).queryByRole("combobox", { name: "Reasoning Effort" })).toBeNull();
-      await choose("Agent Provider", "spare · spare-anthropic");
+      await choose("LLM credential", "spare-anthropic (anthropic)");
       await userEvent.click(within(sheet).getByRole("button", { name: "Save credential" }));
 
       expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("guard@1", {
@@ -1452,6 +1542,7 @@ describe("AgentScreen", () => {
         revision: 1,
       };
       vi.mocked(workersApi.readAgent).mockResolvedValue({ ...GUARD, enablement: enabled });
+      vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ANTHROPIC, SPARE]);
       vi.mocked(workersApi.putAgentEnablement).mockRejectedValue(
         new ApiError(
           "conflict",
@@ -1464,7 +1555,7 @@ describe("AgentScreen", () => {
 
       await userEvent.click(await screen.findByRole("button", { name: "Change credential" }));
       const sheet = await screen.findByRole("dialog");
-      await choose("Agent Provider", "spare · spare-anthropic");
+      await choose("LLM credential", "spare-anthropic (anthropic)");
       await userEvent.click(within(sheet).getByRole("button", { name: "Save credential" }));
 
       expect(await within(sheet).findByText("The credential was not saved.")).toBeTruthy();

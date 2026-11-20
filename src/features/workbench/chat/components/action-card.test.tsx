@@ -88,7 +88,22 @@ describe("ActionCard", () => {
     render(<ActionCard item={item} canRun onRun={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Rotate anthropic-main" })).toBeEnabled();
-    expect(screen.getByText("Offered at revision 3")).toBeVisible();
+    expect(screen.getByText("revision 3")).toBeVisible();
+  });
+
+  it("shows the credential name and the revision in one line", () => {
+    const item = card({
+      offer: {
+        ...card().offer,
+        operation_id: "llm.credential.rotate",
+        target_id: "codex-main",
+        seen: { name: "codex-main", revision: 3 },
+      },
+    });
+
+    render(<ActionCard item={item} canRun onRun={vi.fn()} />);
+
+    expect(screen.getByText("credential: codex-main, revision 3")).toBeVisible();
   });
 
   it("shows the binding set version line", () => {

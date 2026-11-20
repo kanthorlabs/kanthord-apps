@@ -78,6 +78,23 @@ describe("JoinScreen", () => {
     expect(field).toHaveValue("Sam");
   });
 
+  it("claims a prefill and shows the name of a link that holds #name=Mara", () => {
+    window.history.pushState({}, "", `/join/${INVITE}#name=Mara`);
+
+    renderJoin();
+
+    expect(screen.getByLabelText(NAME_LABEL)).toHaveValue("Mara");
+  });
+
+  it("labels the field Your name and leaves it empty for a link with no fragment", () => {
+    window.history.pushState({}, "", `/join/${INVITE}`);
+
+    renderJoin();
+
+    expect(screen.getByLabelText("Your name")).toHaveValue("");
+    expect(screen.queryByLabelText(NAME_LABEL)).toBeNull();
+  });
+
   it("drops the token and the fragment from the address", () => {
     renderJoin();
 

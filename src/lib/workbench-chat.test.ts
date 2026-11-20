@@ -647,6 +647,7 @@ describe("chatItemsOf action card", () => {
 
   it.each([
     ["llm.credential.rotate", "anthropic-main", { revision: 3 }],
+    ["llm.credential.rotate", "anthropic-main", { name: "anthropic-main", revision: 3 }],
     ["project.bindingSet.write", "project_01", { version: 7 }],
     ["agent.enablement.put", "ops@1", { revision: 5 }],
   ])("maps the %s record to one card with its seen value", (operationId, targetId, seen) => {
@@ -675,6 +676,10 @@ describe("chatItemsOf action card", () => {
       [
         record("e1", { ...offer("call_a", "llm.credential.rotate"), seen: { revision: "3" } }),
         record("e2", { ...offer("call_b", "llm.credential.rotate"), seen: { revision: 3, x: 1 } }),
+        record("e4", {
+          ...offer("call_d", "llm.credential.rotate"),
+          seen: { name: "anthropic-main", revision: "3" },
+        }),
         record("e3", { ...offer("call_c", "project.bindingSet.write"), seen: { version: null } }),
       ],
       IDLE,

@@ -265,7 +265,9 @@ describe("itemNodeIdsOf", () => {
   });
 
   it("answers an empty list for a tool approval", () => {
-    expect(itemNodeIdsOf(itemOf(derive([], new Map(), [SESSION]), "tool_approval:s1"))).toEqual([]);
+    expect(itemNodeIdsOf(itemOf(derive([], new Map(), [SESSION]), "tool_approval:s1:c1"))).toEqual(
+      [],
+    );
   });
 });
 
@@ -327,7 +329,7 @@ describe("heldNodeIdsOf", () => {
   });
 
   it("holds nothing for a tool approval", () => {
-    const item = itemOf(derive([chain], new Map(), [SESSION]), "tool_approval:s1");
+    const item = itemOf(derive([chain], new Map(), [SESSION]), "tool_approval:s1:c1");
 
     expect(heldNodeIdsOf(item, [chain])).toEqual([]);
   });
@@ -357,7 +359,7 @@ describe("boardProjectsOf", () => {
   });
 
   it("answers no project and every filter for a tool approval", () => {
-    const item = itemOf(items, "tool_approval:s1");
+    const item = itemOf(items, "tool_approval:s1:c1");
 
     expect(boardProjectsOf(item)).toEqual([]);
   });

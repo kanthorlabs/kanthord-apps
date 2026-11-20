@@ -49,9 +49,20 @@ export function actionVerbOf(operationId: string): string | null {
   return Object.entries(ACTION_VERBS).find(([id]) => id === operationId)?.[1] ?? null;
 }
 
+const CREDENTIAL_OPERATION = "llm.credential.rotate";
+
+function revisionFactsOf(
+  operationId: string,
+  seen: { readonly name?: string; readonly revision: number },
+): readonly string[] {
+  if (operationId !== CREDENTIAL_OPERATION) return [`Offered at revision ${seen.revision}`];
+  if (seen.name === undefined) return [`revision ${seen.revision}`];
+  return [`credential: ${seen.name}, revision ${seen.revision}`];
+}
+
 export function actionFactsOf(offer: WorkbenchActionOffer): readonly string[] {
   const { seen, target_id } = offer;
-  if ("revision" in seen) return [`Offered at revision ${seen.revision}`];
+  if ("revision" in seen) return revisionFactsOf(offer.operation_id, seen);
   if ("version" in seen) return [`Offered at binding set version ${seen.version}`];
   if ("state" in seen) {
     return [`node: ${seen.name} (${target_id})`, `state: ${seen.state} · attempt ${seen.attempt}`];

@@ -33,7 +33,10 @@ function BindingSetSheet({ offer, onSettled, onDialogClosed }: ActionActProps) {
           <BindingsPanel
             projectId={offer.target_id}
             environments={environments.states}
-            onWritten={() => onSettled(ACT_DONE)}
+            onWritten={() => {
+              setOpen(false);
+              onSettled(ACT_DONE);
+            }}
             onEnvironmentChanged={environments.refresh}
           />
         </div>

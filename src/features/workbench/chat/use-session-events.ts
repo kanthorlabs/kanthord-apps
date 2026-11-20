@@ -11,6 +11,7 @@ import type {
 import { asApiError } from "@/hooks/use-resource";
 
 export const EVENTS_BACKOFF_MS = 1000;
+const FAILURES_BEFORE_LINE = 2;
 
 const FINAL_FAILURES: readonly ApiErrorCode[] = ["unauthorized", "forbidden", "not_found"];
 
@@ -102,11 +103,13 @@ export function useSessionEvents(
       const lastEntryIds = new Map(initialEntries.map((entry) => [entry.session_id, entry.id]));
       let currentMembers = initialMembers;
       let version: number | null = null;
+      let failedReads = 0;
       while (!signal.aborted) {
         try {
           const after = cursorOf(currentMembers, lastEntryIds);
           const events = await readWorkbenchEvents(sessionId, after, version, signal);
           if (signal.aborted) return;
+          failedReads = 0;
           setFailure(null);
           setSnapshot(events.snapshot);
           setScopeRequests(events.scope_requests);
@@ -124,8 +127,10 @@ export function useSessionEvents(
         } catch (cause) {
           if (signal.aborted) return;
           const error = asApiError(cause);
-          setFailure(error.message);
-          if (FINAL_FAILURES.includes(error.code)) return;
+          failedReads += 1;
+          const final = FINAL_FAILURES.includes(error.code);
+          if (final || failedReads >= FAILURES_BEFORE_LINE) setFailure(error.message);
+          if (final) return;
           await pause(EVENTS_BACKOFF_MS, signal);
         }
       }

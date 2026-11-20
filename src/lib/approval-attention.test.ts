@@ -32,7 +32,7 @@ describe("approvalItemsOf", () => {
 
     expect(items).toEqual([
       {
-        id: "tool_approval:workbench_session_A",
+        id: "tool_approval:workbench_session_A:call_1",
         group: "decisions",
         kind: "tool_approval",
         subject: "Create the project account-recovery",

@@ -15,6 +15,7 @@ interface SessionChatProps {
   readonly firstSendFailure?: FirstSendFailure | null;
   readonly streamEnd?: ReactNode;
   readonly approvalLine?: ReactNode | null;
+  readonly onPendingApproval?: (toolCallId: string | null) => void;
   readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
   readonly onNew?: () => void;
   readonly onForked?: (forkSessionId: string) => void;
@@ -25,6 +26,7 @@ export function SessionChat({
   firstSendFailure = null,
   streamEnd = null,
   approvalLine = null,
+  onPendingApproval,
   actionLineOf,
   onNew,
   onForked,
@@ -68,6 +70,7 @@ export function SessionChat({
       firstSendFailure={firstSendFailure}
       streamEnd={streamEnd}
       approvalLine={approvalLine}
+      onPendingApproval={onPendingApproval}
       actionLineOf={actionLineOf}
       onNew={onNew}
       onForked={onForked}

@@ -185,6 +185,7 @@ const SCOPE_STOP_KEYS = ["kind", "tool_call_id", "operation_id"];
 const OFFER_KEYS = ["kind", "tool_call_id", "operation_id", "target_id", "seen"];
 const NODE_SEEN_KEYS = ["name", "state", "attempt"];
 const PROJECT_SEEN_KEYS = ["name", "paused"];
+const CREDENTIAL_SEEN_KEYS = ["name", "revision"];
 const REVISION_SEEN_KEYS = ["revision"];
 const VERSION_SEEN_KEYS = ["version"];
 
@@ -231,6 +232,9 @@ function seenOf(value: unknown): WorkbenchActionOffer["seen"] | null {
   if (typeof name !== "string") return null;
   if (hasExactKeys(value, PROJECT_SEEN_KEYS)) {
     return typeof value["paused"] === "boolean" ? { name, paused: value["paused"] } : null;
+  }
+  if (hasExactKeys(value, CREDENTIAL_SEEN_KEYS)) {
+    return typeof value["revision"] === "number" ? { name, revision: value["revision"] } : null;
   }
   if (!hasExactKeys(value, NODE_SEEN_KEYS)) return null;
   const state = NODE_STATES.find((candidate) => candidate === value["state"]);

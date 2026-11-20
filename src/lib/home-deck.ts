@@ -51,7 +51,9 @@ export function queueEntryOf(
   sessionId: string | null,
 ): DeckQueueEntry | null {
   if (sessionId === null) return null;
-  const index = order.findIndex((item) => item.id === `tool_approval:${sessionId}`);
+  const index = order.findIndex(
+    (item) => item.kind === "tool_approval" && item.sessionId === sessionId,
+  );
   const item = order[index];
   return item === undefined ? null : { id: item.id, subject: item.subject, rank: index + 1 };
 }

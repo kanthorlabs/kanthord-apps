@@ -433,7 +433,7 @@ describe("cardCauseOf", () => {
   });
 
   it("states the approval wait of a tool approval", () => {
-    const item = itemOf(derive([], new Map(), [SESSION]), "tool_approval:s1");
+    const item = itemOf(derive([], new Map(), [SESSION]), "tool_approval:s1:c1");
 
     expect(cardCauseOf(item)).toBe("Waits for approval · swe@1 · project.create");
   });
@@ -670,13 +670,13 @@ describe("detailTitleOf", () => {
   });
 
   it("titles a tool approval with the agent and the operation", () => {
-    const item = itemOf(derive([], none, [SESSION]), "tool_approval:s1");
+    const item = itemOf(derive([], none, [SESSION]), "tool_approval:s1:c1");
 
     expect(detailTitleOf(item, none)).toBe("swe@1 asks to run project.create");
   });
 
   it("titles an evidence approval Evidence read", () => {
-    const item = itemOf(derive([], none, [SESSION]), "tool_approval:s1");
+    const item = itemOf(derive([], none, [SESSION]), "tool_approval:s1:c1");
 
     expect(
       detailTitleOf(

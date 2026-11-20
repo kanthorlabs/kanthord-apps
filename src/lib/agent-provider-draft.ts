@@ -1,6 +1,8 @@
 import {
   AGENT_PROVIDER_KINDS,
   type AgentEnablement,
+  type AgentEnablementPutBody,
+  type AgentProvider,
   type AgentProviderAddBody,
   type AgentProviderKind,
   type Credential,
@@ -99,6 +101,57 @@ export function agentProviderBodyOf(
       credential: draft.credential,
     },
   };
+}
+
+export function credentialOfDefaultProvider(enablement: AgentEnablement): string {
+  const { agent_provider } = enablement.default_configuration;
+  return (
+    enablement.agent_providers.find((provider) => provider.name === agent_provider)?.credential ??
+    ""
+  );
+}
+
+export function pinnedCredentialBodyOf(
+  enablement: AgentEnablement,
+  credentialName: string,
+  pinnedModelIdentifier: string,
+  credentials: readonly Credential[],
+):
+  | { readonly ok: true; readonly body: AgentEnablementPutBody }
+  | { readonly ok: false; readonly errors: AgentProviderErrors } {
+  const bodyOf = (
+    agentProviderName: string,
+    agentProviders: readonly AgentProvider[],
+  ): AgentEnablementPutBody => ({
+    expected_revision: enablement.revision,
+    agent_providers: agentProviders,
+    default_configuration: {
+      agent_provider: agentProviderName,
+      model_identifier: pinnedModelIdentifier,
+      reasoning_effort: "off",
+    },
+    fallback_configurations: enablement.fallback_configurations,
+  });
+  const holders = enablement.agent_providers.filter(
+    (provider) => provider.credential === credentialName,
+  );
+  const holder =
+    holders.find((provider) => provider.name === enablement.default_configuration.agent_provider) ??
+    holders[0];
+  if (holder !== undefined)
+    return { ok: true, body: bodyOf(holder.name, enablement.agent_providers) };
+  const kind = providerOfCredential(credentials, credentialName);
+  if (kind === null) return { ok: false, errors: { credential: "Choose a credential." } };
+  if (enablement.agent_providers.some((provider) => provider.name === credentialName)) {
+    return {
+      ok: false,
+      errors: {
+        credential: `The name ${credentialName} is taken in this enablement by another credential.`,
+      },
+    };
+  }
+  const added: AgentProvider = { name: credentialName, provider: kind, credential: credentialName };
+  return { ok: true, body: bodyOf(credentialName, [...enablement.agent_providers, added]) };
 }
 
 export type ProviderRemovalBlock = "last-provider" | "default-provider";
