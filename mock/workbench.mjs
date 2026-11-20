@@ -864,18 +864,27 @@ export function registerWorkbench({
 
   const validConfiguration = (res, agentName, body) => {
     const enablement = agents.find((agent) => agent.agent_name === agentName)?.enablement;
-    const reasons = [];
-    if (enablement?.state !== "enabled") reasons.push("The agent is not enabled.");
-    if (!enablement?.agent_providers.some((p) => p.name === body?.agent_provider)) {
-      reasons.push("The agent provider is unknown.");
+    const configurationRefused = (status, code) => {
+      envelope(res, status, code, "Agent configuration is unavailable or invalid.", {
+        agent_name: agentName,
+      });
+      return false;
+    };
+    if (
+      typeof body?.model_identifier !== "string" ||
+      body.model_identifier === "" ||
+      !EFFORTS.includes(body?.reasoning_effort)
+    ) {
+      envelope(res, 400, "gateway.request.validation_failed", "Request validation failed.");
+      return false;
     }
-    if (typeof body?.model_identifier !== "string" || body.model_identifier === "") {
-      reasons.push("The model identifier is empty.");
+    if (enablement?.state !== "enabled") {
+      return configurationRefused(400, "agent.enablement.unavailable");
     }
-    if (!EFFORTS.includes(body?.reasoning_effort)) reasons.push("The reasoning effort is unknown.");
-    if (reasons.length === 0) return true;
-    envelope(res, 422, "workbench.session.configuration_invalid", reasons.join(" "));
-    return false;
+    if (!enablement.agent_providers.some((p) => p.name === body.agent_provider)) {
+      return configurationRefused(404, "agent.enablement.provider.not_found");
+    }
+    return true;
   };
 
   const noticeStats = (nodes) =>

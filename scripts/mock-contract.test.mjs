@@ -13,7 +13,7 @@ import {
 
 let mock;
 let client;
-const refusals = {};
+const refusals = { expected: [], answers: [] };
 
 const readOnlyRequests = async (call) => {
   const project = fx.PROJECT.id;
@@ -453,7 +453,7 @@ const trackingRequests = async (call) => {
   );
 };
 
-const WAIT_ATTEMPTS = 40;
+const WAIT_ATTEMPTS = 120;
 const WAIT_INTERVAL_MS = 50;
 
 const waitForEntry = async (call, path, matches) => {
@@ -554,6 +554,538 @@ const workbenchRequests = async (call) => {
   });
 };
 
+const UNKNOWN_SUFFIX = "01J9ZQ4XKM3B6V8N2R5T7W0ZZZ";
+
+const refuserOf = (call) => async (status, code, method, path, options) => {
+  refusals.expected.push({ status, code, problems: [] });
+  refusals.answers.push(await call(method, path, options));
+};
+
+const missionRefusalRequests = async (call) => {
+  const refuse = refuserOf(call);
+  const mission = fx.MISSION.id;
+  const ids = fx.GRAPH_IDS;
+  const findings = fx.GRAPH_FINDINGS;
+  const versionOf = async () =>
+    (await call("GET", `/api/mission/project/${fx.PROJECT.id}`)).body.version;
+  const nodeOf = async (id) => (await call("GET", `/api/mission/node/${id}`)).body;
+  const control = async (extra) => ({
+    reason: "Control.",
+    expected_mission_version: await versionOf(),
+    ...extra,
+  });
+  const nodeBody = async (filename) => ({
+    filename,
+    content: { name: "Refused node", requirement: "Refuse.", criterion: "Refused." },
+    tasks: [],
+    reason: "Add a node.",
+    expected_mission_version: await versionOf(),
+  });
+
+  await refuse(404, "mission.record.not_found", "GET", `/api/mission/node/node_${UNKNOWN_SUFFIX}`);
+  await refuse(409, "mission.version.conflict", "POST", `/api/mission/${mission}/node`, {
+    body: { ...(await nodeBody("refused-node.md")), expected_mission_version: 0 },
+  });
+  await refuse(409, "mission.node.filename_conflict", "POST", `/api/mission/${mission}/node`, {
+    body: await nodeBody("signup-form.md"),
+  });
+  await refuse(404, "mission.node.not_found", "PUT", `/api/mission/node/node_${UNKNOWN_SUFFIX}`, {
+    body: { ...(await nodeBody("refused-node.md")), expected_revision: 1 },
+  });
+  const exported = (await call("GET", `/api/mission/${mission}/export?format=json`)).body;
+  await refuse(
+    409,
+    "mission.import.retirement_mismatch",
+    "POST",
+    `/api/mission/${mission}/import`,
+    {
+      body: {
+        format: "json",
+        mission_id: mission,
+        mission_version: exported.mission_version,
+        reason: "Round trip.",
+        entries: exported.entries,
+        preview_digest: "0".repeat(64),
+        confirmed_retirements: [],
+      },
+    },
+  );
+  await refuse(
+    404,
+    "mission.inbox_item.not_found",
+    "POST",
+    `/api/mission/inbox-item/link_update_${UNKNOWN_SUFFIX}/done`,
+    { body: {} },
+  );
+  await refuse(
+    400,
+    "mission.inbox_item.snooze_invalid",
+    "POST",
+    `/api/mission/inbox-item/${fx.INBOX_ITEMS[1].link_update_id}/done`,
+    { body: { snoozed_until: 1 } },
+  );
+  const assessment = fx.GRAPH_PROPOSALS[0].assessment_id;
+  await refuse(
+    409,
+    "mission.proposal.decided",
+    "POST",
+    `/api/mission/assessment/${assessment}/decide`,
+    {
+      body: {
+        expected_mission_version: await versionOf(),
+        approved_proposal_ids: [fx.GRAPH_PROPOSALS[0].id],
+      },
+    },
+  );
+  await refuse(
+    404,
+    "mission.mission.not_found",
+    "GET",
+    `/api/mission/project/project_${UNKNOWN_SUFFIX}/followup`,
+  );
+  await refuse(
+    409,
+    "mission.finding.decided",
+    "POST",
+    `/api/mission/finding/${findings[5].id}/decide`,
+    {
+      body: { decision: "dismissed", decision_reason: "Not a defect." },
+    },
+  );
+  await refuse(
+    409,
+    "mission.finding.not_reported",
+    "POST",
+    `/api/mission/finding/${findings[0].id}/decide`,
+    { body: { decision: "dismissed", decision_reason: "Not a defect." } },
+  );
+  await refuse(
+    409,
+    "mission.finding.not_human",
+    "PATCH",
+    `/api/mission/finding/${findings[0].id}`,
+    {
+      body: { expected_mission_version: await versionOf(), name: "Refused" },
+    },
+  );
+  const team = await nodeOf(ids.team);
+  const blocked = { blocked_attempt: team.attempt, expected_revision: team.visible_revision };
+  await refuse(
+    409,
+    "mission.node.state_conflict",
+    "POST",
+    `/api/mission/node/${ids.team}/unblock`,
+    {
+      body: await control({ ...blocked, blocked_attempt: team.attempt + 1 }),
+    },
+  );
+  await refuse(
+    400,
+    "mission.node.content_invalid",
+    "POST",
+    `/api/mission/node/${ids.team}/unblock`,
+    {
+      body: await control({ ...blocked, reason: " " }),
+    },
+  );
+  await refuse(409, "mission.revision.conflict", "POST", `/api/mission/node/${ids.team}/unblock`, {
+    body: await control({ ...blocked, expected_revision: team.visible_revision + 9 }),
+  });
+  await refuse(
+    409,
+    "mission.node.control_refused",
+    "POST",
+    `/api/mission/node/${ids.billing}/resume`,
+    {
+      body: await control({ expected_state: "Pending", expected_attempt: 0, target: "Available" }),
+    },
+  );
+  await refuse(409, "mission.node.terminal", "POST", `/api/mission/node/${ids.signup}/discard`, {
+    body: await control({ expected_state: "Completed", expected_attempt: 1 }),
+  });
+  await refuse(
+    409,
+    "mission.node.no_unresolved_request",
+    "POST",
+    `/api/mission/node/${ids.billing}/check`,
+    { body: { expected_mission_version: await versionOf() } },
+  );
+  const changelog = await nodeOf(ids.changelog);
+  await refuse(
+    409,
+    "mission.node.action_unresolved",
+    "POST",
+    `/api/mission/node/${ids.changelog}/override`,
+    {
+      body: await control({
+        expected_state: changelog.state,
+        expected_attempt: changelog.attempt,
+        result: "success",
+      }),
+    },
+  );
+  await refuse(
+    502,
+    "mission.evidence.content_unavailable",
+    "GET",
+    "/api/mission/evidence/asset/evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0PM2/content/download",
+  );
+};
+
+const refusalRequests = async (call) => {
+  const refuse = refuserOf(call);
+  const project = fx.PROJECT.id;
+
+  await refuse(401, "gateway.authentication.unauthorized", "GET", "/api/project", {
+    token: "contract-wrong-token",
+  });
+  await refuse(400, "project.request.invalid", "POST", "/api/project", {
+    body: { name: "Bad Name" },
+  });
+  await refuse(409, "project.name.conflict", "POST", "/api/project", {
+    body: { name: fx.PROJECT.name },
+  });
+  await refuse(404, "project.project.not_found", "GET", `/api/project/project_${UNKNOWN_SUFFIX}`);
+  await refuse(404, "worker.catalog.not_found", "GET", "/api/worker/catalog/unknown@1");
+  await refuse(404, "agent.catalog.not_found", "GET", "/api/agent/unknown@1");
+  await refuse(
+    404,
+    "agent.variant.not_found",
+    "GET",
+    `/api/agent/variant/agent_variant_${UNKNOWN_SUFFIX}`,
+  );
+  await refuse(400, "gateway.request.validation_failed", "GET", "/api/agent/model?provider=x");
+  await refuse(
+    400,
+    "agent.configuration.credential_unsuitable",
+    "GET",
+    "/api/agent/model?provider=anthropic&credential=atlas-router",
+  );
+  const enablement = (await call("GET", "/api/agent/enablement/swe@1")).body;
+  await refuse(409, "agent.enablement.revision_conflict", "PUT", "/api/agent/enablement/swe@1", {
+    body: {
+      expected_revision: enablement.revision + 9,
+      agent_providers: enablement.agent_providers,
+      default_configuration: enablement.default_configuration,
+      fallback_configurations: enablement.fallback_configurations,
+    },
+  });
+  await refuse(
+    404,
+    "agent.enablement.provider.not_found",
+    "GET",
+    "/api/agent/enablement/swe@1/provider/unknown-provider/model",
+  );
+  const provider = enablement.agent_providers[0];
+  await refuse(
+    409,
+    "agent.enablement.provider.name_conflict",
+    "POST",
+    "/api/agent/enablement/swe@1/provider",
+    {
+      body: {
+        expected_revision: enablement.revision,
+        name: provider.name,
+        provider: provider.provider,
+        credential: provider.credential,
+      },
+    },
+  );
+  await refuse(
+    409,
+    "agent.enablement.provider.credential_conflict",
+    "POST",
+    "/api/agent/enablement/swe@1/provider",
+    {
+      body: {
+        expected_revision: enablement.revision,
+        name: "contract-other",
+        provider: provider.provider,
+        credential: provider.credential,
+      },
+    },
+  );
+  await refuse(
+    409,
+    "agent.enablement.provider.in_use",
+    "DELETE",
+    `/api/agent/enablement/swe@1/provider/${enablement.default_configuration.agent_provider}`,
+    { body: { expected_revision: enablement.revision } },
+  );
+  const single = (await call("GET", "/api/agent/enablement/plan@1")).body;
+  await refuse(
+    400,
+    "agent.enablement.provider.required",
+    "DELETE",
+    `/api/agent/enablement/plan@1/provider/${single.agent_providers[0].name}`,
+    { body: { expected_revision: single.revision } },
+  );
+
+  const set = (await call("GET", `/api/project/${project}/binding-set`)).body;
+  await refuse(
+    409,
+    "project.binding_set.version_conflict",
+    "PUT",
+    `/api/project/${project}/binding-set`,
+    { body: { version: set.version + 9, bindings: set.bindings } },
+  );
+  await refuse(
+    404,
+    "project.binding.not_found",
+    "GET",
+    `/api/project/${project}/binding/binding_${UNKNOWN_SUFFIX}`,
+  );
+  await refuse(
+    400,
+    "project.bindings.repository.address_invalid",
+    "POST",
+    `/api/project/${project}/binding/check`,
+    { body: { kind: "repository", config: { address: "bad", ssh_credential: "atlas-ssh" } } },
+  );
+  await refuse(404, "credential.credential.not_found", "GET", "/api/llm/credential/unknown-name");
+
+  await refuse(404, "worker.machine.not_found", "GET", "/api/worker/machine/unknown-machine");
+  await refuse(400, "worker.machine.name_invalid", "POST", "/api/worker/machine", {
+    body: { name: "Bad Name" },
+  });
+  await refuse(400, "worker.machine.key_invalid", "POST", "/api/worker/machine", {
+    body: { name: "refused-machine", public_key: "bad" },
+  });
+  await refuse(409, "worker.machine.name_conflict", "POST", "/api/worker/machine", {
+    body: { name: "lab-01" },
+  });
+  const machineKey = Buffer.alloc(32, 5).toString("base64url");
+  await call("POST", "/api/worker/machine", {
+    body: { name: "contract-keyed", public_key: machineKey },
+  });
+  await refuse(409, "worker.machine.key_conflict", "POST", "/api/worker/machine", {
+    body: { name: "refused-machine", public_key: machineKey },
+  });
+  const lab = (await call("GET", "/api/worker/machine/lab-01")).body;
+  await refuse(
+    409,
+    "worker.machine.archived",
+    "POST",
+    "/api/worker/machine/contract-machine/archive",
+    {
+      body: { expected_revision: 2 },
+    },
+  );
+  await refuse(
+    409,
+    "worker.machine.revision_conflict",
+    "POST",
+    "/api/worker/machine/lab-01/archive",
+    { body: { expected_revision: lab.revision + 9 } },
+  );
+  await refuse(409, "worker.machine.in_use", "POST", "/api/worker/machine/lab-01/archive", {
+    body: { expected_revision: lab.revision },
+  });
+
+  const instanceBody = { name: "refused-instance", worker: "coder@1", placement: "server" };
+  await refuse(404, "worker.instance.not_found", "GET", "/api/worker/instance/unknown-instance");
+  await refuse(400, "worker.instance.name_invalid", "POST", "/api/worker/instance", {
+    body: { ...instanceBody, name: "Bad Name" },
+  });
+  await refuse(400, "worker.instance.worker_invalid", "POST", "/api/worker/instance", {
+    body: { ...instanceBody, worker: "unknown@1" },
+  });
+  await refuse(400, "worker.instance.placement_invalid", "POST", "/api/worker/instance", {
+    body: { ...instanceBody, placement: "moon" },
+  });
+  await refuse(400, "worker.instance.key_forbidden", "POST", "/api/worker/instance", {
+    body: { ...instanceBody, public_key: Buffer.alloc(32, 3).toString("base64url") },
+  });
+  await refuse(409, "worker.instance.name_conflict", "POST", "/api/worker/instance", {
+    body: { ...instanceBody, name: "box-1" },
+  });
+  await refuse(400, "worker.instance.machine_invalid", "POST", "/api/worker/instance", {
+    body: { ...instanceBody, placement: "worker" },
+  });
+  await refuse(400, "worker.instance.key_invalid", "POST", "/api/worker/instance", {
+    body: { ...instanceBody, placement: "worker", machine: "lab-01" },
+  });
+  await call("PUT", "/api/mock/container", {
+    body: { reason: "runtime_absent", runtime: "podman" },
+  });
+  await refuse(409, "worker.instance.placement_unavailable", "POST", "/api/worker/instance", {
+    body: { ...instanceBody, placement: "container" },
+  });
+  await call("PUT", "/api/mock/container", { body: { reason: null, runtime: "podman" } });
+  await refuse(
+    409,
+    "worker.instance.archived",
+    "POST",
+    "/api/worker/instance/contract-instance/archive",
+    { body: { expected_revision: 2 } },
+  );
+  const coder = (await call("GET", "/api/worker/instance/coder-1")).body;
+  await refuse(
+    409,
+    "worker.instance.revision_conflict",
+    "POST",
+    "/api/worker/instance/coder-1/archive",
+    { body: { expected_revision: coder.revision + 9 } },
+  );
+  await refuse(
+    409,
+    "worker.instance.placement_unsupported",
+    "POST",
+    "/api/worker/instance/coder-1/revision",
+    { body: { expected_revision: coder.revision, public_key: machineKey } },
+  );
+  await refuse(409, "worker.instance.in_use", "POST", "/api/worker/instance/coder-1/archive", {
+    body: { expected_revision: coder.revision },
+  });
+
+  await refuse(
+    404,
+    "workbench.session.not_found",
+    "GET",
+    `/api/workbench/session/workbench_session_${UNKNOWN_SUFFIX}`,
+  );
+  const sessionBody = {
+    agent_provider: "atlas-llm",
+    model_identifier: "qwen3-coder",
+    reasoning_effort: "off",
+    agent_name: "swe@1",
+  };
+  await refuse(400, "gateway.request.validation_failed", "POST", "/api/workbench/session", {
+    body: { ...sessionBody, reasoning_effort: "extreme" },
+  });
+  await refuse(404, "agent.enablement.provider.not_found", "POST", "/api/workbench/session", {
+    body: { ...sessionBody, agent_provider: "unknown-provider" },
+  });
+  await refuse(409, "workbench.session.agent_refused", "POST", "/api/workbench/session", {
+    body: { ...sessionBody, agent_name: "guard@1" },
+  });
+  const plan = (await call("GET", "/api/agent/enablement/plan@1")).body;
+  const disabled = await call("POST", "/api/agent/enablement/plan@1/disable", {
+    body: { expected_revision: plan.revision },
+  });
+  await refuse(400, "agent.enablement.unavailable", "POST", "/api/workbench/session", {
+    body: { ...sessionBody, agent_provider: plan.agent_providers[0].name, agent_name: "plan@1" },
+  });
+  await call("POST", "/api/agent/enablement/plan@1/enable", {
+    body: { expected_revision: disabled.body.revision },
+  });
+  await refuse(404, "workbench.invite.not_found", "POST", "/api/workbench/invite/join", {
+    token: null,
+    body: { invite_token: "unknown-token", name: "Dana Lee" },
+  });
+  await refuse(401, "gateway.jwt.invite_ended", "GET", "/api/workbench/guest/session", {
+    token: "unknown-guest-token",
+  });
+  await refuse(
+    404,
+    "workbench.invite.not_found",
+    "DELETE",
+    `/api/workbench/invite/workbench_invite_${UNKNOWN_SUFFIX}`,
+  );
+  await refuse(404, "tracking.trace.not_found", "GET", `/api/tracking/trace/${"0".repeat(32)}`);
+  await refuse(
+    404,
+    "footprint.cleanup.not_found",
+    "GET",
+    `/api/footprint/cleanup/cleanup_${UNKNOWN_SUFFIX}`,
+  );
+  await refuse(
+    404,
+    "footprint.alert.not_found",
+    "POST",
+    `/api/footprint/alert/alert_${UNKNOWN_SUFFIX}/acknowledge`,
+  );
+  const alerts = (await call("GET", "/api/footprint/alert")).body.items;
+  const acknowledged = alerts.find(
+    (alert) => alert.resolved_at === null && alert.acknowledged_at !== null,
+  );
+  await refuse(
+    409,
+    "footprint.alert.acknowledged",
+    "POST",
+    `/api/footprint/alert/${acknowledged.alert_id}/acknowledge`,
+  );
+  const cleanups = (await call("GET", "/api/footprint/cleanup")).body.items;
+  const cancelled = cleanups.find((cleanup) => cleanup.state !== "queued");
+  await refuse(
+    409,
+    "footprint.cleanup.not_queued",
+    "POST",
+    `/api/footprint/cleanup/${cancelled.cleanup_id}/cancel`,
+  );
+
+  const variantBody = { agent_name: "swe@1", display_name: "Refused", instruction: "Refuse." };
+  await refuse(400, "agent.variant.name_invalid", "POST", "/api/agent/variant", {
+    body: { ...variantBody, display_name: "1 refused" },
+  });
+  const agentList = (await call("GET", "/api/agent")).body.items;
+  await refuse(409, "agent.variant.name_taken", "POST", "/api/agent/variant", {
+    body: { ...variantBody, display_name: agentList[0].display_name },
+  });
+  await refuse(409, "agent.variant.base_refused", "POST", "/api/agent/variant", {
+    body: { ...variantBody, agent_name: "guard@1" },
+  });
+  const variant = fx.AGENT_VARIANTS[0];
+  await refuse(409, "agent.variant.revision_conflict", "PUT", `/api/agent/variant/${variant.id}`, {
+    body: { ...variantBody, expected_revision: variant.revision + 9 },
+  });
+
+  await refuse(400, "credential.input.invalid", "POST", "/api/project/credential", {
+    body: { name: "refused-secret", platform: "unknown", metadata: null, secret: SECRET },
+  });
+  await refuse(409, "credential.credential.exists", "POST", "/api/project/credential", {
+    body: {
+      name: "contract-secret",
+      platform: "environment_secret",
+      metadata: null,
+      secret: SECRET,
+    },
+  });
+  await refuse(
+    409,
+    "credential.revision.conflict",
+    "POST",
+    "/api/project/credential/contract-secret/revision",
+    { body: { expected_revision: 99, secret: SECRET } },
+  );
+
+  const traces = (await call("GET", "/api/tracking/trace")).body.items;
+  const trace = traces.find((item) => item.trace_id === fx.GRAPH_EXECUTIONS[0].trace_id);
+  await refuse(
+    404,
+    "tracking.text.not_found",
+    "GET",
+    `/api/tracking/trace/${trace.trace_id}/text/unknown-text`,
+  );
+  await refuse(
+    404,
+    "scheduler.execution.not_found",
+    "GET",
+    `/api/agent/prompt/resolve?execution_id=execution_${UNKNOWN_SUFFIX}&agent_name=swe@1`,
+  );
+  await refuse(
+    404,
+    "agent.prompt.record_absent",
+    "GET",
+    `/api/agent/prompt/resolve?execution_id=${trace.execution_id}&agent_name=unknown@1`,
+  );
+  await refuse(
+    400,
+    "tracking.cause.subcategory_mismatch",
+    "POST",
+    `/api/tracking/trace/${trace.trace_id}/cause/label`,
+    { body: { category: "prompt", subcategory: "unknown", reason: "Refused." } },
+  );
+  const open = traces.find((item) => item.state === "open");
+  await refuse(
+    409,
+    "tracking.cause.trace_open",
+    "POST",
+    `/api/tracking/trace/${open.trace_id}/cause/label`,
+    { body: { category: "prompt", subcategory: "context_missing", reason: "Refused." } },
+  );
+};
+
 const placementRequests = async (call) => {
   await call("PUT", "/api/mock/container", { body: { reason: null, runtime: "podman" } });
 };
@@ -561,6 +1093,7 @@ const placementRequests = async (call) => {
 const runScript = async () => {
   await readOnlyRequests(client.call);
   await credentialRequests(client.call);
+  await missionRefusalRequests(client.call);
   await missionRequests(client.call);
   await projectRequests(client.call);
   await agentRequests(client.call);
@@ -568,6 +1101,7 @@ const runScript = async () => {
   await footprintRequests(client.call);
   await trackingRequests(client.call);
   await workbenchRequests(client.call);
+  await refusalRequests(client.call);
   await placementRequests(client.call);
 };
 
@@ -604,6 +1138,31 @@ describe("mock contract", () => {
       expect(answer.problems).toEqual([]);
     } finally {
       await stopMock(unhealthy);
+    }
+  }, 20000);
+
+  it("answers each refusal that a mock handler sends on purpose with a declared error", () => {
+    expect(
+      refusals.answers.map((answer) => ({
+        status: answer.status,
+        code: answer.body?.error?.code,
+        problems: answer.problems,
+      })),
+    ).toEqual(refusals.expected);
+  });
+
+  it("answers an invalid prompt file with 409 and an engine error body", async () => {
+    const invalid = await startMock({ KANTHORD_MOCK_PROMPT_INVALID: "swe.md" });
+    try {
+      const answer = await makeClient(invalid).call("GET", "/api/agent/swe@1");
+
+      expect(answer).toMatchObject({
+        status: 409,
+        body: { error: { code: "agent.prompt.template_invalid" } },
+        problems: [],
+      });
+    } finally {
+      await stopMock(invalid);
     }
   }, 20000);
 

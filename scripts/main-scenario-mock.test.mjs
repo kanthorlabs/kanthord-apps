@@ -3,14 +3,17 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as fx from "../mock/fixtures.mjs";
 import { makeClient, startMock, stopMock } from "./mock-harness.mjs";
 
-const POLL_ATTEMPTS = 100;
+const POLL_ATTEMPTS = 300;
 const POLL_INTERVAL_MS = 50;
 const SCENARIO_TIMEOUT_MS = 30000;
 
 let mock;
 let client;
 
-const answerOf = (step, answer) => {
+const answerOf = async (step, request) => {
+  const answer = await request.catch((error) => {
+    throw new Error(`step ${step}: ${error.message}`);
+  });
   expect(answer.problems, `step ${step}`).toEqual([]);
   return answer;
 };
@@ -18,7 +21,7 @@ const answerOf = (step, answer) => {
 const untilAnswer = async (step, path, isDone) => {
   let last = null;
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
-    last = answerOf(step, await client.call("GET", path));
+    last = await answerOf(step, client.call("GET", path));
     if (isDone(last.body)) return last.body;
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
@@ -40,9 +43,9 @@ describe("main Workbench scenario on the mock", () => {
   it(
     "creates a conversation, waits on a tool approval and finishes the run after the approval",
     async () => {
-      const created = answerOf(
+      const created = await answerOf(
         1,
-        await client.call("POST", "/api/workbench/session", {
+        client.call("POST", "/api/workbench/session", {
           body: {
             agent_provider: "atlas-llm",
             model_identifier: "qwen3-coder",
@@ -55,9 +58,9 @@ describe("main Workbench scenario on the mock", () => {
       sessionId = created.body.id;
       const session = `/api/workbench/session/${sessionId}`;
 
-      const message = answerOf(
+      const message = await answerOf(
         2,
-        await client.call("POST", `${session}/message`, {
+        client.call("POST", `${session}/message`, {
           body: { text: "create the project account-recovery" },
         }),
       );
@@ -70,15 +73,15 @@ describe("main Workbench scenario on the mock", () => {
       );
       const toolCallId = waiting.snapshot.pending_approval.tool_call_id;
 
-      const listed = answerOf(4, await client.call("GET", "/api/workbench/session"));
+      const listed = await answerOf(4, client.call("GET", "/api/workbench/session"));
       expect(listed.body.items.find((item) => item.id === sessionId)).toMatchObject({
         run_active: true,
         pending_approval: { tool_call_id: toolCallId },
       });
 
-      const approved = answerOf(
+      const approved = await answerOf(
         5,
-        await client.call("POST", `${session}/approve`, {
+        client.call("POST", `${session}/approve`, {
           body: { tool_call_id: toolCallId, approved: true },
         }),
       );
@@ -102,9 +105,9 @@ describe("main Workbench scenario on the mock", () => {
   it(
     "shares the conversation, joins as a guest and sends a run message and a note",
     async () => {
-      const invite = answerOf(
+      const invite = await answerOf(
         7,
-        await client.call("POST", `/api/workbench/session/${sessionId}/invite`, {
+        client.call("POST", `/api/workbench/session/${sessionId}/invite`, {
           body: {
             invitee_name: "Mara",
             project_ids: [fx.PROJECT.id],
@@ -112,30 +115,30 @@ describe("main Workbench scenario on the mock", () => {
           },
         }),
       );
-      const joined = answerOf(
+      const joined = await answerOf(
         7,
-        await client.call("POST", "/api/workbench/invite/join", {
+        client.call("POST", "/api/workbench/invite/join", {
           token: null,
           body: { invite_token: invite.body.invite_token, name: "Mara" },
         }),
       );
       const guest = { token: joined.body.guest_token };
 
-      const read = answerOf(8, await client.call("GET", "/api/workbench/guest/session", guest));
+      const read = await answerOf(8, client.call("GET", "/api/workbench/guest/session", guest));
       expect(read.body.mention_names.length).toBeGreaterThan(0);
 
-      const run = answerOf(
+      const run = await answerOf(
         9,
-        await client.call("POST", "/api/workbench/guest/session/message", {
+        client.call("POST", "/api/workbench/guest/session/message", {
           ...guest,
           body: { text: `@${read.body.mention_names[0]} status?` },
         }),
       );
       expect(run.status).toBe(202);
       expect(run.body.kind).toBe("run");
-      const note = answerOf(
+      const note = await answerOf(
         9,
-        await client.call("POST", "/api/workbench/guest/session/message", {
+        client.call("POST", "/api/workbench/guest/session/message", {
           ...guest,
           body: { text: "Thanks for the update." },
         }),

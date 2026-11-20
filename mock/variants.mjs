@@ -144,9 +144,8 @@ export const registerVariants = ({ on, json, envelope, agents, variants, hasSess
     if (!isRevision(body.expected_revision)) return refuseField(res, "expected_revision");
     const variant = variantOrRefuse(res, m[1]);
     if (variant === null) return undefined;
-    const refused =
-      refuseRevision(res, variant, body.expected_revision) ??
-      refuseName(res, body.display_name, variant.id);
+    if (refuseRevision(res, variant, body.expected_revision) !== null) return undefined;
+    const refused = refuseName(res, body.display_name, variant.id);
     if (refused !== null) return refused;
     variant.display_name = body.display_name;
     variant.instruction = body.instruction;

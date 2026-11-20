@@ -235,7 +235,8 @@ export const makeClient = (mock) => {
     if (token !== null) headers.authorization = `Bearer ${token}`;
     if (body !== undefined) headers["content-type"] = "application/json";
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeout = new Error(`${method} ${path} timed out after ${REQUEST_TIMEOUT_MS} ms`);
+    const timer = setTimeout(() => controller.abort(timeout), REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(`${mock.base}${path}`, {
         method,
@@ -253,6 +254,9 @@ export const makeClient = (mock) => {
       const parsed =
         contentType.startsWith("application/json") && text !== "" ? JSON.parse(text) : text;
       return { status: response.status, body: parsed, problems: found };
+    } catch (error) {
+      if (controller.signal.reason === timeout) throw timeout;
+      throw error;
     } finally {
       clearTimeout(timer);
     }
