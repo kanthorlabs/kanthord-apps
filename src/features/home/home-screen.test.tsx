@@ -1013,6 +1013,10 @@ describe("HomeScreen reads", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("All clear")).toBeNull();
+    await waitFor(() => expect(listInboxItems).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await Promise.all(vi.mocked(listInboxItems).mock.results.map((result) => result.value));
+    });
     vi.mocked(listQueueJobs).mockImplementation(async () => []);
     for (const read of [listProjects, readMission, listMissionNodes, listWorkbenchSessions]) {
       vi.mocked(read).mockClear();
