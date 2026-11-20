@@ -12,9 +12,37 @@ import { GRAPH_BINDINGS } from "./fixtures.mjs";
 import * as pr from "./prompts.mjs";
 import { buildTimelineTraces } from "./timeline-fixtures.mjs";
 
-const FLOW_READ = JSON.parse(
+const RECORDED_FLOW_READ = JSON.parse(
   readFileSync(new URL("../test/flow-read.json", import.meta.url), "utf8"),
 );
+const ADDED_STOP_REASONS = ["instance_archived", "instance_lost", "worker_stopped", "human_paused"];
+
+const withAddedStopReasons = (flow) => {
+  const { order, rows, previous_totals: previousTotals } = flow.stop_reasons;
+  const periods = Object.values(rows)[0].length;
+  const missing = ADDED_STOP_REASONS.filter((reason) => !order.includes(reason));
+  return {
+    ...flow,
+    stop_reasons: {
+      order: [
+        ...order.filter((reason) => reason !== "lost" && reason !== "budget_end"),
+        ...missing,
+        "lost",
+        "budget_end",
+      ],
+      rows: {
+        ...rows,
+        ...Object.fromEntries(missing.map((reason) => [reason, Array(periods).fill(0)])),
+      },
+      previous_totals: {
+        ...previousTotals,
+        ...Object.fromEntries(missing.map((reason) => [reason, 0])),
+      },
+    },
+  };
+};
+
+const FLOW_READ = withAddedStopReasons(RECORDED_FLOW_READ);
 const WINDOW_FLOOR_MS = 60_000;
 const ENTRY_STEP_MS = 1000;
 const TIMELINE_SCOPES = ["execution_id", "node_id", "project_id"];
@@ -500,7 +528,7 @@ const buildTrace = (record, now) => {
       session_id: session,
       entry_id: id,
       parent_entry_id: index === 0 ? null : entryIdOf(index - 1),
-      sequence: index,
+      sequence: index + 1,
       entry_type: raw.payload.type,
       entry_time: entryTime,
       tool_call_id: raw.toolCallId,
@@ -696,6 +724,11 @@ const labelSpanOf = (summary, label) => ({
   created_at: label.created_at,
 });
 
+const LIST_ONLY_FIELDS = ["root_operation", "root_attributes"];
+
+const traceReadOf = (summary) =>
+  Object.fromEntries(Object.entries(summary).filter(([key]) => !LIST_ONLY_FIELDS.includes(key)));
+
 const uniqueSorted = (lists) => [...new Set(lists.flat())].sort();
 
 export function registerTracking({ on, json, envelope, page, executions, username }) {
@@ -831,7 +864,7 @@ export function registerTracking({ on, json, envelope, page, executions, usernam
 
   on("GET", /^\/api\/tracking\/trace\/([^/]+)$/, (m, _b, res) => {
     const trace = find(res, decodeURIComponent(m[1]));
-    if (trace !== undefined) json(res, 200, trace.summary);
+    if (trace !== undefined) json(res, 200, traceReadOf(trace.summary));
   });
 
   on("POST", /^\/api\/tracking\/trace\/([^/]+)\/cause\/label$/, (m, body, res) => {

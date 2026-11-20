@@ -1,30 +1,33 @@
 const now = Date.now();
 
 export const PROJECT = {
-  id: "prj-kanthord",
+  id: "project_01J9ZQ4XKM3B6V8N2R5T7W0PK1",
   name: "kanthord",
   binding_set_version: 1,
   created_at: now,
   paused_at: null,
-  workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-kanthord",
+  workspace_directory:
+    "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0PK1",
 };
 
 export const PROJECT_ATLAS = {
-  id: "prj-atlas",
+  id: "project_01J9ZQ4XKM3B6V8N2R5T7W0PA1",
   name: "atlas",
   binding_set_version: 1,
   created_at: now,
   paused_at: null,
-  workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-atlas",
+  workspace_directory:
+    "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0PA1",
 };
 
 export const PROJECT_ORBIT = {
-  id: "prj-orbit",
+  id: "project_01J9ZQ4XKM3B6V8N2R5T7W0PR1",
   name: "orbit",
   binding_set_version: 1,
   created_at: now,
   paused_at: now - 3 * 60 * 60_000,
-  workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-orbit",
+  workspace_directory:
+    "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0PR1",
 };
 
 const BASE_PROMPT = `This text is the shared standard of every agent. This text and the rules of your role form the default standard. The default standard binds every work product.
@@ -152,7 +155,12 @@ export const WORKER_REGISTRATIONS = [
     draining: false,
     registered: true,
   },
-];
+].map((registration, index) => ({
+  instance: null,
+  ...registration,
+  client_id: `client_identity_01J9ZQ4XKM3B6V8N2R5T7W0C0${index + 1}`,
+  name: registration.instance ?? registration.worker_name,
+}));
 
 const toolCountsOf = (tools) => {
   const counts = { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 };
@@ -455,6 +463,7 @@ export const MISSION_ENTRIES = [
     verifications: ["pnpm test"],
     bindings: ["kanthord-repo", "evidence"],
     tags: [],
+    external_links: [],
     depends_on: ["reset-email.md"],
   },
   {
@@ -467,6 +476,7 @@ export const MISSION_ENTRIES = [
     verifications: ["pnpm test --filter reset"],
     bindings: ["kanthord-repo", "general-main", "reviewer-main", "evidence"],
     tags: [],
+    external_links: [],
     depends_on: [],
   },
   {
@@ -723,7 +733,7 @@ export const GRAPH_BINDINGS = {
     id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BC2",
     name: "kanthord-jira",
     kind: "conversation",
-    resource_identity: "conversation:jira:kanthorlabs.atlassian.net:KD",
+    resource_identity: "conversation:jira:kanthorlabs.atlassian.net/KD",
     revision: 1,
     created_at: minutes(790),
     removed_at: null,
@@ -774,6 +784,7 @@ const body = (name, bindings, extra = {}) => ({
 const content = (name, bindings, extra = {}) => ({
   intent: "implement",
   tags: [],
+  external_links: [],
   ...body(name, bindings, extra),
 });
 
@@ -836,19 +847,19 @@ const SIGNUP_LINK = {
 export const GRAPH_LINK_UPDATES = {
   [ids.signup]: [
     {
-      id: "link_update_01J9ZQ4XKM3B6V8N2R5T7W0LU2",
+      id: "link_update_01J9ZQ4XKM3B6V8N2R5T7W0MV2",
       external_link: SIGNUP_LINK,
       update_key: "issue_comment:2002",
-      inbound_event_id: "inbound_event_01J9ZQ4XKM3B6V8N2R5T7W0IE2",
+      inbound_event_id: "inbound_event_01J9ZQ4XKM3B6V8N2R5T7W0JE2",
       actor_id: "octocat",
       occurred_at: minutes(30),
       new: true,
     },
     {
-      id: "link_update_01J9ZQ4XKM3B6V8N2R5T7W0LU1",
+      id: "link_update_01J9ZQ4XKM3B6V8N2R5T7W0MV1",
       external_link: SIGNUP_LINK,
       update_key: "issue_comment:2001",
-      inbound_event_id: "inbound_event_01J9ZQ4XKM3B6V8N2R5T7W0IE1",
+      inbound_event_id: "inbound_event_01J9ZQ4XKM3B6V8N2R5T7W0JE1",
       actor_id: "hubot",
       occurred_at: minutes(300),
       new: false,
@@ -869,7 +880,7 @@ const inboxItem = (suffix, fields) => ({
 });
 
 export const INBOX_ITEMS = [
-  inboxItem("LU2", {
+  inboxItem("MV2", {
     external_link: SIGNUP_LINK,
     reason: "linked",
     occurred_at: minutes(30),
@@ -882,10 +893,10 @@ export const INBOX_ITEMS = [
       occurred_at: minutes(30),
     },
   }),
-  inboxItem("LU3", {
+  inboxItem("MV3", {
     external_link: {
       kind: "jira_issue",
-      resource_identity: "conversation:jira:kanthorlabs.atlassian.net:KD",
+      resource_identity: "conversation:jira:kanthorlabs.atlassian.net/KD",
       key: "KD-118",
     },
     reason: "mentioned",
@@ -898,12 +909,12 @@ export const INBOX_ITEMS = [
       occurred_at: minutes(95),
     },
   }),
-  inboxItem("LU4", {
+  inboxItem("MV4", {
     project_id: PROJECT_ATLAS.id,
     external_link: {
       kind: "slack_thread",
       resource_identity: "conversation:slack:T0KANTHOR",
-      channel: "atlas-dev",
+      channel: "C0ATLASDEV",
       thread_ts: "1752000000.000100",
     },
     reason: "participating",
@@ -917,7 +928,7 @@ export const INBOX_ITEMS = [
       occurred_at: minutes(180),
     },
   }),
-  inboxItem("LU5", {
+  inboxItem("MV5", {
     external_link: SIGNUP_LINK,
     reason: "mentioned",
     state: "snoozed",
@@ -1101,7 +1112,7 @@ export const GRAPH_ATTEMPTS = {
       required_external_actions: [],
       opened_at: minutes(4000),
       closed_at: minutes(3900),
-      outcome_ids: ["outcome_01J9ZQ4XKM3B6V8N2R5T7W0OA1"],
+      outcome_ids: ["outcome_01J9ZQ4XKM3B6V8N2R5T7W0PA1"],
       opened_by: execution("EA1", "reviewer-main #1"),
     },
   ],
@@ -1114,7 +1125,7 @@ export const GRAPH_ATTEMPTS = {
       required_external_actions: [pullRequest("kanthord-repo.pull_request", REPO_OLD)],
       opened_at: minutes(6000),
       closed_at: minutes(5000),
-      outcome_ids: ["outcome_01J9ZQ4XKM3B6V8N2R5T7W0OS1"],
+      outcome_ids: ["outcome_01J9ZQ4XKM3B6V8N2R5T7W0PS1"],
       opened_by: execution("ES1", "general-main #1"),
     },
   ],
@@ -1127,7 +1138,7 @@ export const GRAPH_ATTEMPTS = {
       required_external_actions: [pullRequest("kanthord-repo.pull_request", REPO_OLD)],
       opened_at: minutes(400),
       closed_at: minutes(120),
-      outcome_ids: ["outcome_01J9ZQ4XKM3B6V8N2R5T7W0OB3"],
+      outcome_ids: ["outcome_01J9ZQ4XKM3B6V8N2R5T7W0PB3"],
       opened_by: execution("EB3", "general-main #2"),
     },
   ],
@@ -1181,7 +1192,7 @@ export const GRAPH_ATTEMPTS = {
     required_external_actions: [],
     opened_at: minutes(attempt === 1 ? 1800 : 1400),
     closed_at: minutes(attempt === 1 ? 1600 : 90),
-    outcome_ids: attempt === 1 ? [] : ["outcome_01J9ZQ4XKM3B6V8N2R5T7W0OD1"],
+    outcome_ids: attempt === 1 ? [] : ["outcome_01J9ZQ4XKM3B6V8N2R5T7W0PD1"],
     opened_by: execution("ED9", "reviewer-main #1"),
   })),
   [graphId("YE1")]: [
@@ -1307,7 +1318,7 @@ export const GRAPH_EVIDENCE = [
     end_state: "expected",
   },
   {
-    id: "evidence_01J9ZQ4XKM3B6V8N2R5T7W0LM2",
+    id: "evidence_01J9ZQ4XKM3B6V8N2R5T7W0MM2",
     node_id: ids.webhook,
     attempt: 1,
     subject: "Landed commit",
@@ -1417,9 +1428,9 @@ export const GRAPH_ASSESSMENTS = [
     round: 3,
   },
   {
-    id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SI1",
+    id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SJ1",
     node_id: ids.invite,
-    execution_id: "execution_01J9ZQ4XKM3B6V8N2R5T7W0EI9",
+    execution_id: "execution_01J9ZQ4XKM3B6V8N2R5T7W0EJ9",
     attempt: 1,
     node_revision: 1,
     evidence_ids: [],
@@ -1638,7 +1649,7 @@ export const GRAPH_FINDINGS = [
   }),
   reviewerFinding("09", 1, "H1", {
     node_id: ids.invite,
-    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SI1",
+    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SJ1",
     route: "report",
     name: "Invite email in the sender language",
     description: "The invite email uses the language of the sender, not of the receiver.",
@@ -1674,7 +1685,7 @@ export const GRAPH_FINDINGS = [
 
 export const GRAPH_OUTCOMES = [
   {
-    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0OB3",
+    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0PB3",
     node_id: ids.audit,
     attempt: 1,
     node_revision: 1,
@@ -1685,7 +1696,7 @@ export const GRAPH_OUTCOMES = [
     created_at: minutes(120),
   },
   {
-    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0OS1",
+    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0PS1",
     node_id: ids.signup,
     attempt: 1,
     node_revision: 1,
@@ -1696,7 +1707,7 @@ export const GRAPH_OUTCOMES = [
     created_at: minutes(5000),
   },
   {
-    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0OD1",
+    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0PD1",
     node_id: ids.team,
     attempt: 2,
     node_revision: 1,
@@ -1707,18 +1718,18 @@ export const GRAPH_OUTCOMES = [
     created_at: minutes(90),
   },
   {
-    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0OI1",
+    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0PJ1",
     node_id: ids.invite,
     attempt: 1,
     node_revision: 1,
     closing_event: "assessment-passed",
     result: "success",
-    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SI1",
+    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SJ1",
     evidence_ids: [],
     created_at: minutes(1690),
   },
   {
-    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0OK1",
+    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0PK1",
     node_id: ids.signingKey,
     attempt: 0,
     node_revision: 1,
@@ -1753,6 +1764,7 @@ export const GRAPH_PROPOSALS = [
         "Store the first use of an invite link and refuse every later use.",
         "The invite store holds the use time after the first use.",
       ),
+      finding_labels: [],
     },
     created_node_id: ids.inviteFix,
     approved_at: minutes(1500),
@@ -1775,6 +1787,7 @@ export const GRAPH_PROPOSALS = [
         "Read the workspace language before the invite email renders.",
         "The rendered email names the workspace language in its lang attribute.",
       ),
+      finding_labels: [],
     },
     created_node_id: null,
     approved_at: null,
@@ -1796,6 +1809,7 @@ export const GRAPH_PROPOSALS = [
         "Write the expiry time when the invite link is created.",
         "The invite store holds an expiry time seven days after the creation.",
       ),
+      finding_labels: [],
     },
     created_node_id: null,
     approved_at: null,
@@ -1817,6 +1831,7 @@ export const GRAPH_PROPOSALS = [
         "Read the name of the inviter before the invite email renders.",
         "The rendered email holds the name of the inviter.",
       ),
+      finding_labels: [],
     },
     created_node_id: null,
     approved_at: null,
@@ -1843,7 +1858,7 @@ const executionRecord = (projectId, spec, index) => ({
   claimant: {
     worker_binding_id: spec.binding.id,
     resource_identity: spec.binding.resource_identity,
-    runtime_identity: `worker_registration_01J9ZQ4XKM3B6V8N2R5T7W0I${String(index).padStart(2, "0")}`,
+    runtime_identity: `worker_registration_01J9ZQ4XKM3B6V8N2R5T7W0J${String(index).padStart(2, "0")}`,
     ...(spec.unnamed ? {} : { name: `${spec.binding.name} #${(index % 2) + 1}` }),
   },
   attempt: spec.attempt ?? 1,
@@ -1860,13 +1875,13 @@ const executionRecord = (projectId, spec, index) => ({
   created_at: minutes(spec.startedAgo),
   ended_at: spec.endedAgo === null ? null : minutes(spec.endedAgo),
   stop: spec.stop ?? null,
-  trace_id: `${spec.traceSeed}${"0".repeat(32 - spec.traceSeed.length)}`,
-  root_span_id: `${spec.traceSeed}${"0".repeat(16 - spec.traceSeed.length)}`,
+  trace_id: Buffer.from(spec.traceSeed).toString("hex").padEnd(32, "0"),
+  root_span_id: Buffer.from(spec.traceSeed).toString("hex").padEnd(16, "0"),
 });
 
 export const GRAPH_FOLLOWUPS = [
   {
-    id: "followup_01J9ZQ4XKM3B6V8N2R5T7W0FU1",
+    id: "proposal_01J9ZQ4XKM3B6V8N2R5T7W0FV1",
     node_id: ids.signup,
     attempt: 1,
     assessment_id: null,
@@ -2103,7 +2118,7 @@ export const ATLAS_EDGES = [
 
 export const ATLAS_OUTCOMES = [
   {
-    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0OF8",
+    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0PF8",
     node_id: atlasId("YF8"),
     attempt: 1,
     node_revision: 1,
@@ -2166,9 +2181,9 @@ export const ATLAS_EXECUTIONS = [
     expiresIn: 2,
   },
   ...[
-    ["L01", "YF9", "lost", 200, null, -150, null],
-    ["L02", "YF9", "lost", 140, null, -100, null],
-    ["L03", "YFA", "finished", 90, 70, undefined, { reason: "budget_end", code: "turns" }],
+    ["M01", "YF9", "lost", 200, null, -150, null],
+    ["M02", "YF9", "lost", 140, null, -100, null],
+    ["M03", "YFA", "finished", 90, 70, undefined, { reason: "budget_end", code: "turns" }],
   ].map(([suffix, nodeSuffix, claimState, startedAgo, endedAgo, expiresIn, stop]) => ({
     executionId: `execution_${ulidAt(minutes(startedAgo), suffix)}`,
     traceSeed: suffix.toLowerCase(),
@@ -2823,7 +2838,7 @@ export const WORKBENCH_SESSIONS = [
     ],
   },
   {
-    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0OP1",
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0PP1",
     agent_name: "ops@1",
     created: SESSION_BASE + 3 * 86400000,
     configuration: {
@@ -2849,7 +2864,7 @@ export const WORKBENCH_SESSIONS = [
     ],
   },
   {
-    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0OP2",
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0PP2",
     agent_name: "ops@1",
     created: SESSION_BASE + 4 * 86400000,
     configuration: {
@@ -2879,7 +2894,7 @@ export const WORKBENCH_SESSIONS = [
     ],
   },
   {
-    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0OP3",
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0PP3",
     host_session_id: null,
     agent_name: "ops@1",
     created: SESSION_BASE + 5 * 86400000,
@@ -2907,7 +2922,7 @@ export const WORKBENCH_SESSIONS = [
   },
   {
     id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0RE1",
-    host_session_id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0OP3",
+    host_session_id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0PP3",
     agent_name: "re@1",
     created: SESSION_BASE + 5 * 86400000 + 60000,
     configuration: {
@@ -3124,7 +3139,7 @@ const INSTANCE_KEY = "Qm9ndXMtaW5zdGFuY2Uta2V5LWZvci10aGUtbW9jay";
 
 export const WORKER_INSTANCES = [
   {
-    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I01",
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0J01",
     name: "mac-studio",
     worker: "coder@1",
     placement: "worker",
@@ -3137,7 +3152,7 @@ export const WORKER_INSTANCES = [
     connected: "mac-studio.local",
   },
   {
-    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I03",
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0J03",
     name: "build-01",
     worker: "coder@1",
     placement: "worker",
@@ -3150,7 +3165,7 @@ export const WORKER_INSTANCES = [
     connected: null,
   },
   {
-    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I04",
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0J04",
     name: "review-01",
     worker: "reviewer@1",
     placement: "worker",
@@ -3163,7 +3178,7 @@ export const WORKER_INSTANCES = [
     connected: "review-01",
   },
   {
-    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I05",
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0J05",
     name: "old-laptop",
     worker: "coder@1",
     placement: "worker",
@@ -3176,7 +3191,7 @@ export const WORKER_INSTANCES = [
     connected: null,
   },
   {
-    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I06",
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0J06",
     name: "coder-1",
     worker: "coder@1",
     placement: "server",
@@ -3189,7 +3204,7 @@ export const WORKER_INSTANCES = [
     connected: null,
   },
   {
-    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I07",
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0J07",
     name: "coder-2",
     worker: "coder@1",
     placement: "server",
@@ -3202,7 +3217,7 @@ export const WORKER_INSTANCES = [
     connected: null,
   },
   {
-    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I08",
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0J08",
     name: "box-1",
     worker: "coder@1",
     placement: "worker",
@@ -3215,7 +3230,7 @@ export const WORKER_INSTANCES = [
     connected: null,
   },
   {
-    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I09",
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0J09",
     name: "builder-1",
     worker: "coder@1",
     placement: "container",

@@ -131,6 +131,7 @@ export function registerEnvironments({
   envelope,
   projectOrRefuse,
   bindingSetOf,
+  storedBindingsOf,
   bindingIdOf,
 }) {
   const recordsByProject = new Map();
@@ -179,6 +180,7 @@ export function registerEnvironments({
       checks: record.status === "ready" && index === 1 ? RED_BASELINE : [],
       repairs: record.repairs ?? 0,
       repairing: record.repairing ?? false,
+      review_flow: null,
     };
   };
 
@@ -303,6 +305,7 @@ export function registerEnvironments({
     return json(res, 200, {
       project_id: project.id,
       binding_set_version: set.version,
+      bindings: storedBindingsOf(project.id, set.bindings),
       changes: [{ kind: "revised", binding_id: bindingIdOf(binding.name) }],
       stale_pins: [],
     });
@@ -336,7 +339,7 @@ export function registerEnvironments({
   on("GET", /^\/api\/project\/credential\/([^/]+)$/, (m, _b, res) => {
     const record = secretOrRefuse(res, m[1]);
     if (record === undefined) return undefined;
-    return json(res, 200, record);
+    return json(res, 200, { ...record, bindings: [] });
   });
 
   on("POST", /^\/api\/project\/credential$/, (_m, b, res) => {

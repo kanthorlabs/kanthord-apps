@@ -215,11 +215,12 @@ export function registerWorkbench({
     variants.find((variant) => variant.id === session.variant_id)?.display_name ??
     displayNameOf(session.agent_name);
 
-  const membersOf = (host) =>
+  const membersOf = (host, withConfiguration = true) =>
     [host, ...participantsOf(host)].map((member) => ({
       session_id: member.id,
       agent_name: member.agent_name,
       display_name: sessionDisplayNameOf(member),
+      ...(withConfiguration ? { configuration: { ...member.configuration } } : {}),
     }));
 
   const entriesAfter = (host, after) => {
@@ -776,9 +777,8 @@ export function registerWorkbench({
   };
 
   const enqueue = (session, target, tag, text, guestName = null) => {
-    entrySequence += 1;
     const item = {
-      id: `workbench_queued_message_${entrySequence}`,
+      id: `workbench_queued_message_0${randomTail()}`,
       text,
       target: tag === null ? null : target,
       agent_name: tag?.agent_name ?? null,
@@ -1734,7 +1734,7 @@ export function registerWorkbench({
     return json(res, 200, {
       session_id: session.id,
       title: forkTitleOf(session) || null,
-      members: membersOf(session),
+      members: membersOf(session, false),
       owner_name: GUEST_OWNER_NAME,
       entries: guestEntriesAfter(session, null),
       run_active: stateOf(session).run !== null,
@@ -1882,8 +1882,8 @@ export function registerWorkbench({
 
   const seeded = sessions.find((session) => session.approval?.requested_by?.kind === "guest");
   if (seeded !== undefined && projects.length >= 2) {
-    invites.set("workbench_invite_0SEEDED", {
-      id: "workbench_invite_0SEEDED",
+    invites.set("workbench_invite_01J9ZQ4XKM3B6V8N2R5T7W0SE1", {
+      id: "workbench_invite_01J9ZQ4XKM3B6V8N2R5T7W0SE1",
       session_id: seeded.id,
       project_ids: projects
         .slice(0, 2)
@@ -1892,7 +1892,7 @@ export function registerWorkbench({
       granted_operations: ["mission.node.pause"],
       invitee_name: seeded.approval.requested_by.name,
       expires_at: Date.now() + GUEST_INVITE_TTL_MS,
-      invite_token: "mock-seeded-invite-token",
+      invite_token: "7d1f4c2a-5b3e-4a8d-9c6f-0a1b2c3d4e01",
     });
     for (const text of ["@Yumi list the open nodes", "@Jeremy plan the retry"]) {
       const { target, tag } = addresseeOf(seeded, text);
@@ -1902,8 +1902,8 @@ export function registerWorkbench({
 
   const variantConversation = sessions.find((session) => session.id === VARIANT_CONVERSATION_ID);
   if (variantConversation !== undefined) {
-    invites.set("workbench_invite_0VARIANT", {
-      id: "workbench_invite_0VARIANT",
+    invites.set("workbench_invite_01J9ZQ4XKM3B6V8N2R5T7W0VR1", {
+      id: "workbench_invite_01J9ZQ4XKM3B6V8N2R5T7W0VR1",
       session_id: variantConversation.id,
       project_ids: projects
         .slice(0, 2)
@@ -1912,7 +1912,7 @@ export function registerWorkbench({
       granted_operations: ["mission.node.pause"],
       invitee_name: "Dana Lee",
       expires_at: Date.now() + GUEST_INVITE_TTL_MS,
-      invite_token: "mock-seeded-variant-invite-token",
+      invite_token: "7d1f4c2a-5b3e-4a8d-9c6f-0a1b2c3d4e02",
     });
     stateOf(variantConversation).auto_mode = false;
     const text = "@Software Architecture check the pricing rules of the cart";

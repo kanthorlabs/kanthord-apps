@@ -34,7 +34,7 @@ const MODELS = [
   ["gemini-2.5-pro", "google", 0.0000018, 0.000009],
 ];
 const AGENTS = ["general-main", "reviewer-main"];
-const PROJECTS = ["prj-kanthord", "prj-atlas"];
+const PROJECTS = ["project_01J9ZQ4XKM3B6V8N2R5T7W0PK1", "project_01J9ZQ4XKM3B6V8N2R5T7W0PA1"];
 const WORKERS = ["server", "worker"];
 const TOOLS = ["read_file", "run_command", "edit_file"];
 const MEASURE_SPANS = {
