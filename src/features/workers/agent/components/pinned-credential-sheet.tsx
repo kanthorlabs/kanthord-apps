@@ -27,8 +27,6 @@ function PinnedCredentialForm({
   onSaved,
 }: PinnedCredentialFormProps) {
   const edit = usePinnedCredentialEdit(agentName, enablement, pinnedModelIdentifier, onSaved);
-  const credentialOf = (name: string) =>
-    enablement.agent_providers.find((provider) => provider.name === name)?.credential ?? name;
   return (
     <form
       noValidate
@@ -46,22 +44,28 @@ function PinnedCredentialForm({
             <AlertDescription>{edit.failure}</AlertDescription>
           </Alert>
         )}
+        {edit.credentialsError !== null && (
+          <Alert variant="destructive">
+            <AlertTitle>The credentials were not read.</AlertTitle>
+            <AlertDescription>{edit.credentialsError}</AlertDescription>
+          </Alert>
+        )}
         <FieldGroup>
           <SearchChoiceField
             id="pinned-agent-provider"
-            label="Agent Provider"
-            value={edit.agentProvider}
-            options={enablement.agent_providers.map((provider) => provider.name)}
-            error={undefined}
-            placeholder="Search agent providers"
-            emptyText="No agent provider matches."
-            labelOf={(name) => `${name} · ${credentialOf(name)}`}
-            onChange={edit.selectAgentProvider}
+            label="LLM credential"
+            value={edit.credential}
+            options={edit.credentialNames}
+            error={edit.errors.credential}
+            placeholder="Search LLM credentials"
+            emptyText="No LLM credential matches."
+            labelOf={edit.credentialLabelOf}
+            onChange={edit.selectCredential}
           />
         </FieldGroup>
       </div>
       <SheetFooter>
-        <Button type="submit" disabled={edit.submitting || edit.agentProvider === ""}>
+        <Button type="submit" disabled={edit.submitting || edit.credential === ""}>
           Save credential
         </Button>
       </SheetFooter>
