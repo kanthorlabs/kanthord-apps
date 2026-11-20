@@ -447,6 +447,7 @@ export function registerWorkbench({
       operation_id: "llm.credential.rotate",
       target_id: SETUP_CREDENTIAL,
       seen: {
+        name: SETUP_CREDENTIAL,
         revision: newestLiveRevision(CREDENTIALS.find((item) => item.name === SETUP_CREDENTIAL)),
       },
     },

@@ -8,6 +8,7 @@ import {
   nodeChangeLineOf,
   projectChangeLineOf,
   readFailureLineOf,
+  revisionChangeLineOf,
 } from "./workbench-action";
 import { ACTION_VERBS } from "./workbench-chat";
 
@@ -49,6 +50,26 @@ describe("actionFactsOf", () => {
         }),
       ),
     ).toEqual(["node: Add retry to payment client (node_42)", "state: Blocked · attempt 2"]);
+  });
+
+  it("lists the credential name and the revision of a credential offer", () => {
+    expect(
+      actionFactsOf(
+        offer("llm.credential.rotate", { name: "codex-main", revision: 3 }, "codex-main"),
+      ),
+    ).toEqual(["credential: codex-main, revision 3"]);
+  });
+
+  it("lists the revision only for a credential offer with no name", () => {
+    expect(actionFactsOf(offer("llm.credential.rotate", { revision: 3 }, "codex-main"))).toEqual([
+      "revision 3",
+    ]);
+  });
+
+  it("keeps Offered at revision for the agent enablement offer", () => {
+    expect(actionFactsOf(offer("agent.enablement.put", { revision: 4 }, "ops@1"))).toEqual([
+      "Offered at revision 4",
+    ]);
   });
 
   it.each([
@@ -133,5 +154,16 @@ describe("readFailureLineOf", () => {
     expect(
       readFailureLineOf(offer("mission.node.discard", { name: "Billing", paused: true }), "Down."),
     ).toBe("node_42 was not read: Down.");
+  });
+});
+
+describe("revisionChangeLineOf", () => {
+  it("compares the revision only when the credential offer holds a name", () => {
+    const seen = offer("llm.credential.rotate", { name: "codex-main", revision: 3 }, "codex-main");
+
+    expect(revisionChangeLineOf(seen, 3)).toBeNull();
+    expect(revisionChangeLineOf(seen, 4)).toBe(
+      "codex-main changed since the card: it is now revision 4. Nothing ran.",
+    );
   });
 });

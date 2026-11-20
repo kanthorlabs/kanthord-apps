@@ -692,7 +692,7 @@ describe("ActionAct on a setup card", () => {
     expect(document.body.textContent).not.toContain(TYPED_VALUE);
   });
 
-  it("reports done after a binding write", async () => {
+  it("closes the dialog and reports done after a binding write", async () => {
     serveBindings();
     const user = mountSetup(bindingCard);
 
@@ -704,6 +704,9 @@ describe("ActionAct on a setup card", () => {
       expect(reportWorkbenchAction).toHaveBeenCalledWith(SESSION_ID, "call_1", DONE_REPORT),
     );
     expect(writeBindingSet).toHaveBeenCalledWith("project_1", 2, { issues: CONVERSATION });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Edit bindings of project_1" })).toBeNull(),
+    );
   });
 
   it("reports done after a default save", async () => {
