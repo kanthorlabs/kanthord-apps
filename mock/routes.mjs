@@ -1,0 +1,3870 @@
+import { createHash, generateKeyPairSync } from "node:crypto";
+
+import { registerEnvironments } from "./environments.mjs";
+import { registerFootprint } from "./footprint.mjs";
+import * as fx from "./fixtures.mjs";
+import { registerInstances } from "./instances.mjs";
+import { registerMachines } from "./machines.mjs";
+import * as pr from "./prompts.mjs";
+import { registerTracking } from "./tracking.mjs";
+import { registerVariants, VARIANT_ID } from "./variants.mjs";
+import { registerWorkbench } from "./workbench.mjs";
+
+const PORT = Number(process.env.KANTHORD_HTTP_PORT ?? 31415);
+const ORIGIN = process.env.KANTHORD_HTTP_ALLOWED_ORIGINS ?? "http://localhost:27182";
+const USERNAME = "kanthorlabs";
+const DEV_TOKEN = process.env.KANTHORD_DEV_TOKEN ?? "dev-human-token";
+const UNHEALTHY = process.env.KANTHORD_MOCK_UNHEALTHY === "1";
+const EMPTY = process.env.KANTHORD_MOCK_EMPTY === "1";
+const PROMPT_INVALID = process.env.KANTHORD_MOCK_PROMPT_INVALID ?? "";
+const STABLE_PLACEMENT_REASONS = ["server_in_container", "runtime_absent", "runtime_rootful"];
+const CONTAINER_REASON_ENV = process.env.KANTHORD_MOCK_CONTAINER ?? "server_in_container";
+let containerReason = CONTAINER_REASON_ENV === "available" ? null : CONTAINER_REASON_ENV;
+const RUNTIME_FAILED_DETAILS = {
+  podman: "Cannot connect to Podman. Is the Podman machine running?",
+  docker:
+    "rootless Docker cannot map the container uid 10001 to the server user. Use rootless Podman or a rootful runtime.",
+};
+let containerRuntime = process.env.KANTHORD_MOCK_CONTAINER_RUNTIME ?? "podman";
+
+const HEALTHY_SERVICES = {
+  server: { gateway: 200, store: 200, log: 200 },
+  gateway: { listener: 200, authentication: 200, idempotency: 200, registry: 200, invocation: 200 },
+  custody: { credential: 200 },
+  scheduler: { queue: 200 },
+  worker: { registrations: 200 },
+  repository: { toolchain: 200 },
+  project: { bindings: 200 },
+  mission: { operations: 200 },
+};
+const projects = EMPTY
+  ? []
+  : [
+      structuredClone(fx.PROJECT),
+      structuredClone(fx.PROJECT_ATLAS),
+      structuredClone(fx.PROJECT_ORBIT),
+    ];
+const bindingSet = structuredClone(EMPTY ? { ...fx.BINDING_SET, bindings: {} } : fx.BINDING_SET);
+const otherBindingSets = new Map(
+  projects
+    .slice(1)
+    .map((project) => [
+      project.id,
+      structuredClone(fx.PROJECT_BINDING_SETS[project.id] ?? { version: 1, bindings: {} }),
+    ]),
+);
+const bindingSetOf = (projectId) => {
+  if (projectId === projects[0]?.id) return bindingSet;
+  if (!otherBindingSets.has(projectId))
+    otherBindingSets.set(projectId, { version: 1, bindings: {} });
+  return otherBindingSets.get(projectId);
+};
+const bindingSets = () => [
+  ...(projects[0] === undefined ? [] : [[projects[0].id, bindingSet]]),
+  ...otherBindingSets.entries(),
+];
+const agents = structuredClone(fx.AGENT_DECLARATIONS).map((agent) =>
+  EMPTY ? { ...agent, enablement: null } : agent,
+);
+const workbenchSessions = EMPTY ? [] : structuredClone(fx.WORKBENCH_SESSIONS);
+const agentVariants = EMPTY ? [] : structuredClone(fx.AGENT_VARIANTS);
+const inboxItems = EMPTY ? [] : structuredClone(fx.INBOX_ITEMS);
+const projectStates = new Map([
+  [
+    fx.PROJECT.id,
+    structuredClone({
+      mission: { ...fx.MISSION, entries: fx.MISSION_ENTRIES },
+      nodes: fx.GRAPH_NODES,
+      edges: fx.GRAPH_EDGES,
+      proposals: fx.GRAPH_PROPOSALS,
+      followups: fx.GRAPH_FOLLOWUPS,
+      findings: fx.GRAPH_FINDINGS,
+      outcomes: fx.GRAPH_OUTCOMES,
+      queue: fx.GRAPH_QUEUE,
+      executions: fx.GRAPH_EXECUTIONS,
+    }),
+  ],
+  [
+    fx.PROJECT_ATLAS.id,
+    structuredClone({
+      mission: { ...fx.ATLAS_MISSION, entries: [] },
+      nodes: fx.ATLAS_NODES,
+      edges: fx.ATLAS_EDGES,
+      proposals: [],
+      followups: [],
+      findings: [],
+      outcomes: fx.ATLAS_OUTCOMES,
+      queue: fx.ATLAS_QUEUE,
+      executions: fx.ATLAS_EXECUTIONS,
+    }),
+  ],
+]);
+let nodeSequence = 10;
+
+const emptyProjectState = (projectId) => ({
+  mission: { id: `mission_${projectId}`, version: 1, entries: [] },
+  nodes: [],
+  edges: [],
+  proposals: [],
+  followups: [],
+  findings: [],
+  outcomes: [],
+  queue: [],
+  executions: [],
+});
+
+projectStates.set(fx.PROJECT_ORBIT.id, {
+  ...emptyProjectState(fx.PROJECT_ORBIT.id),
+  nodes: structuredClone(fx.ORBIT_NODES),
+});
+
+const stateOfProject = (projectId) => projectStates.get(projectId);
+const stateOfMission = (missionId) =>
+  [...projectStates.values()].find((state) => state.mission.id === missionId);
+const stateOfNode = (nodeId) =>
+  [...projectStates.values()].find((state) => state.nodes.some((node) => node.id === nodeId));
+
+const routes = [];
+const on = (method, pattern, handler) => routes.push({ method, pattern, handler });
+
+const json = (res, status, body) => {
+  res.writeHead(status, {
+    "content-type": "application/json",
+    "access-control-allow-origin": ORIGIN,
+    vary: "origin",
+    "access-control-allow-headers": "authorization,content-type,accept,idempotency-key",
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+    "cache-control": "no-store",
+  });
+  res.end(body === null ? "" : JSON.stringify(body));
+};
+
+const PUBLIC = [
+  { method: "GET", path: "/api/liveness" },
+  { method: "POST", path: "/api/workbench/invite/join" },
+];
+
+const GUEST_PATH = /^\/api\/workbench\/guest\/session(\/|$)/;
+
+on("GET", /^\/api\/liveness$/, (_m, _b, res) => {
+  if (!UNHEALTHY) return json(res, 200, { status: "ok", services: HEALTHY_SERVICES });
+  const services = structuredClone(HEALTHY_SERVICES);
+  services.server.store = 503;
+  return projectEnvelope(
+    res,
+    503,
+    "gateway.liveness.unhealthy",
+    "A component is unavailable.",
+    services,
+  );
+});
+
+const MOCK_SERVER_VERSION = "28.0.1";
+
+on("GET", /^\/api\/openapi\.yaml$/, (_m, _b, res) => {
+  res.writeHead(200, {
+    "content-type": "application/yaml",
+    "access-control-allow-origin": ORIGIN,
+    vary: "origin",
+    "cache-control": "no-store",
+  });
+  res.end(
+    `openapi: 3.1.0\ninfo:\n  title: kanthord\n  version: ${MOCK_SERVER_VERSION}\npaths: {}\n`,
+  );
+});
+
+on("GET", /^\/api\/auth\/verify$/, (_m, _b, res) =>
+  json(res, 200, { kind: "human", sub: USERNAME, name: "Kanthor Labs" }),
+);
+
+const PROJECT_NAME = /^[a-z][a-z0-9-]{0,62}$/;
+
+const projectEnvelope = (res, status, code, message, details = null) =>
+  json(res, status, {
+    error: { code, message, details },
+    request_id: "request_01J00000000000000000000000",
+  });
+
+const refuseProjectName = (res, name, selfId) => {
+  if (typeof name !== "string" || !PROJECT_NAME.test(name)) {
+    return projectEnvelope(res, 400, "project.request.invalid", "The project name is invalid.");
+  }
+  if (projects.some((p) => p.name === name && p.id !== selfId)) {
+    return projectEnvelope(
+      res,
+      409,
+      "project.name.conflict",
+      "Another project already uses the requested name.",
+    );
+  }
+  return null;
+};
+
+on("GET", /^\/api\/project$/, (_m, _b, res, _t, url) => {
+  const limit = Number(url.searchParams.get("limit") ?? 100);
+  const offset = Number(url.searchParams.get("cursor") ?? 0);
+  const ordered = [...projects].sort((a, b) => (a.id < b.id ? 1 : -1));
+  const items = ordered.slice(offset, offset + limit);
+  const nextCursor = offset + limit < ordered.length ? String(offset + limit) : null;
+  return json(res, 200, { items, next_cursor: nextCursor });
+});
+
+on("POST", /^\/api\/project$/, (_m, b, res) => {
+  const refused = refuseProjectName(res, b?.name, null);
+  if (refused !== null) return refused;
+  const id = `project_${Date.now().toString(36)}`;
+  const project = {
+    id,
+    name: b.name,
+    binding_set_version: 1,
+    created_at: Date.now(),
+    paused_at: null,
+    workspace_directory: `/home/kanthord/.local/state/kanthord/projects/${id}`,
+  };
+  projects.push(project);
+  projectStates.set(id, emptyProjectState(id));
+  return json(res, 200, project);
+});
+
+on("GET", /^\/api\/project\/([^/]+)$/, (m, _b, res) => {
+  const project = projects.find((p) => p.id === decodeURIComponent(m[1]));
+  if (project === undefined) {
+    return projectEnvelope(
+      res,
+      404,
+      "project.project.not_found",
+      "The project identity does not exist.",
+    );
+  }
+  return json(res, 200, project);
+});
+
+for (const [action, pausedAt] of [
+  ["pause", () => Date.now()],
+  ["resume", () => null],
+]) {
+  on("POST", new RegExp(`^\\/api\\/project\\/([^/]+)\\/${action}$`), (m, _b, res) => {
+    const project = projects.find((p) => p.id === decodeURIComponent(m[1]));
+    if (project === undefined) {
+      return projectEnvelope(
+        res,
+        404,
+        "project.project.not_found",
+        "The project identity does not exist.",
+      );
+    }
+    if ((project.paused_at === null) === (action === "pause")) project.paused_at = pausedAt();
+    return json(res, 200, project);
+  });
+}
+
+on("PATCH", /^\/api\/project\/([^/]+)$/, (m, b, res) => {
+  const project = projects.find((p) => p.id === decodeURIComponent(m[1]));
+  if (project === undefined) {
+    return projectEnvelope(
+      res,
+      404,
+      "project.project.not_found",
+      "The project identity does not exist.",
+    );
+  }
+  const refused = refuseProjectName(res, b?.name, project.id);
+  if (refused !== null) return refused;
+  project.name = b.name;
+  return json(res, 200, project);
+});
+
+on("GET", /^\/api\/worker\/catalog$/, (_m, _b, res) =>
+  json(res, 200, page(fx.WORKER_CATALOG.filter((w) => fx.RELEASED_WORKERS.includes(w.name)))),
+);
+on("GET", /^\/api\/worker\/registration$/, (_m, _b, res, _t, url) => {
+  const projectId = url.searchParams.get("project_id");
+  const items = fx.WORKER_REGISTRATIONS.filter(
+    (registration) => projectId === null || registration.project_id === projectId,
+  ).map(instanceRoutes.registrationView);
+  return json(res, 200, page(items));
+});
+const placementStatusOf = (placement) => {
+  const unavailable = placement === "container" && containerReason !== null;
+  return {
+    placement,
+    available: !unavailable,
+    reason: unavailable ? containerReason : null,
+    detail:
+      unavailable && containerReason === "runtime_failed"
+        ? RUNTIME_FAILED_DETAILS[containerRuntime]
+        : null,
+    container_runtime:
+      placement === "container" &&
+      !["server_in_container", "runtime_absent"].includes(containerReason) &&
+      !(containerReason === "runtime_failed" && containerRuntime === "podman")
+        ? containerRuntime
+        : null,
+  };
+};
+on("GET", /^\/api\/worker\/placement$/, (_m, _b, res) =>
+  json(res, 200, { items: ["server", "container", "worker"].map(placementStatusOf) }),
+);
+on("PUT", /^\/api\/mock\/container$/, (_m, b, res) => {
+  containerReason = b?.reason ?? null;
+  containerRuntime = b?.runtime ?? "podman";
+  return json(res, 200, placementStatusOf("container"));
+});
+const WORKER_METHODS = {
+  "coder@1": "steps",
+  "reviewer@1": "evaluation",
+};
+on("GET", /^\/api\/worker\/catalog\/([^/]+)$/, (m, _b, res) => {
+  const item = fx.WORKER_CATALOG.find((w) => w.name === decodeURIComponent(m[1]));
+  const agentNames = agents
+    .filter((a) => a.worker_names.includes(item?.name))
+    .map((a) => a.agent_name);
+  if (item?.host === "external-harness") {
+    return json(res, 200, {
+      ...item,
+      harness: item.name.split("@")[0],
+      resource_budget: { wall_time_ms: 3600000 },
+    });
+  }
+  if (item === undefined || agentNames.length === 0) {
+    return projectEnvelope(res, 404, "worker.catalog.not_found", "The worker is not supplied.");
+  }
+  return json(res, 200, {
+    ...item,
+    method: WORKER_METHODS[item.name],
+    agent_names: agentNames,
+    resource_budget: { wall_time_ms: 3600000 },
+  });
+});
+registerVariants({
+  on,
+  json,
+  envelope: projectEnvelope,
+  agents,
+  variants: agentVariants,
+  hasSession: (variantId) => workbenchSessions.some((session) => session.variant_id === variantId),
+});
+on("GET", /^\/api\/agent$/, (_m, _b, res, _t, url) =>
+  json(
+    res,
+    200,
+    page(
+      agents
+        .map((a) => ({
+          agent_name: a.agent_name,
+          display_name: a.display_name,
+          worker_names: a.worker_names,
+          consumers: a.consumers,
+          tool_counts: a.tool_counts,
+          enablement: a.enablement,
+        }))
+        .sort((left, right) => (left.agent_name < right.agent_name ? -1 : 1)),
+      url,
+    ),
+  ),
+);
+on("GET", /^\/api\/agent\/enablement$/, (_m, _b, res) =>
+  json(res, 200, page(agents.flatMap((a) => (a.enablement === null ? [] : [a.enablement])))),
+);
+const enablementTarget = (res, name, expectedRevision) => {
+  const agent = agents.find((a) => a.agent_name === decodeURIComponent(name));
+  if (agent === undefined) {
+    projectEnvelope(res, 404, "agent.catalog.not_found", "The agent is absent from the catalog.");
+    return null;
+  }
+  if ((agent.enablement?.revision ?? undefined) !== expectedRevision) {
+    projectEnvelope(
+      res,
+      409,
+      "agent.enablement.revision_conflict",
+      "The enablement changed after the read.",
+    );
+    return null;
+  }
+  return agent;
+};
+on("GET", /^\/api\/agent\/enablement\/([^/]+)$/, (m, _b, res) => {
+  const agent = agents.find((a) => a.agent_name === decodeURIComponent(m[1]));
+  if (agent?.enablement == null) {
+    return projectEnvelope(res, 404, "agent.enablement.not_found", "No enablement exists.");
+  }
+  return json(res, 200, agent.enablement);
+});
+on("PUT", /^\/api\/agent\/enablement\/([^/]+)$/, (m, b, res) => {
+  const agent = enablementTarget(res, m[1], b?.expected_revision);
+  if (agent === null) return undefined;
+  agent.enablement = {
+    agent_name: agent.agent_name,
+    state: agent.enablement?.state ?? "enabled",
+    agent_providers: b.agent_providers,
+    default_configuration: b.default_configuration,
+    fallback_configurations: b.fallback_configurations,
+    revision: (agent.enablement?.revision ?? 0) + 1,
+  };
+  return json(res, 200, agent.enablement);
+});
+on("POST", /^\/api\/agent\/enablement\/([^/]+)\/(enable|disable)$/, (m, b, res) => {
+  const agent = enablementTarget(res, m[1], b?.expected_revision);
+  if (agent === null) return undefined;
+  if (agent.enablement === null) {
+    return projectEnvelope(res, 404, "agent.enablement.not_found", "No enablement exists.");
+  }
+  agent.enablement = {
+    ...agent.enablement,
+    state: m[2] === "enable" ? "enabled" : "disabled",
+    revision: agent.enablement.revision + 1,
+  };
+  return json(res, 200, agent.enablement);
+});
+on("GET", /^\/api\/agent\/enablement\/([^/]+)\/provider\/([^/]+)\/model$/, (m, _b, res) => {
+  const agent = agents.find((a) => a.agent_name === decodeURIComponent(m[1]));
+  if (agent === undefined) {
+    return projectEnvelope(
+      res,
+      404,
+      "agent.catalog.not_found",
+      "The agent is absent from the catalog.",
+    );
+  }
+  if (agent.enablement === null) {
+    return projectEnvelope(res, 404, "agent.enablement.not_found", "No enablement exists.");
+  }
+  const provider = agent.enablement.agent_providers.find(
+    (p) => p.name === decodeURIComponent(m[2]),
+  );
+  if (provider === undefined) {
+    return projectEnvelope(
+      res,
+      404,
+      "agent.enablement.provider.not_found",
+      "The agent provider does not exist.",
+    );
+  }
+  return json(res, 200, { items: modelsOfCredential(provider.provider, provider.credential) });
+});
+
+const refuseValidation = (res) =>
+  projectEnvelope(res, 400, "gateway.request.validation_failed", "Request validation failed.");
+
+const modelsOfCredential = (provider, credentialName) => {
+  const listed = fx.AGENT_PROVIDER_MODELS[credentialName];
+  if (listed !== undefined) return listed;
+  if (provider !== "openai-compatible") return fx.AGENT_KIND_MODELS[provider] ?? [];
+  const live = credentials
+    .find((item) => item.name === credentialName)
+    ?.revisions.find((revision) => revision.ended_at === null);
+  return (live?.metadata?.models ?? []).map((model) => ({
+    model_identifier: model.id,
+    reasoning_efforts: model.reasoning_levels ?? ["off"],
+  }));
+};
+
+const credentialSuitsProvider = (provider, credentialName) =>
+  credentials.some(
+    (item) => item.name === credentialName && item.platform === provider && !isArchived(item),
+  );
+
+const isLlmPlatform = (platform) =>
+  CREDENTIAL_PLATFORM_LISTS.llm.items.some((entry) => entry.platform === platform);
+
+on("GET", /^\/api\/agent\/model$/, (_m, _b, res, _t, url) => {
+  const provider = url.searchParams.get("provider");
+  const credential = url.searchParams.get("credential");
+  if (!isLlmPlatform(provider) || !isNonblank(credential)) return refuseValidation(res);
+  if (!credentialSuitsProvider(provider, credential)) {
+    return projectEnvelope(
+      res,
+      400,
+      "agent.configuration.credential_unsuitable",
+      "The credential does not suit the agent provider kind.",
+      { provider, credential },
+    );
+  }
+  return json(res, 200, { items: modelsOfCredential(provider, credential) });
+});
+
+const enablementOf = (res, name, expectedRevision) => {
+  const agent = agents.find((a) => a.agent_name === decodeURIComponent(name));
+  if (agent === undefined) {
+    projectEnvelope(res, 404, "agent.catalog.not_found", "The agent is absent from the catalog.");
+    return null;
+  }
+  if (agent.enablement === null) {
+    projectEnvelope(res, 404, "agent.enablement.not_found", "No enablement exists.");
+    return null;
+  }
+  if (agent.enablement.revision !== expectedRevision) {
+    projectEnvelope(
+      res,
+      409,
+      "agent.enablement.revision_conflict",
+      "The enablement changed after the read.",
+      { agent_name: agent.agent_name, revision: agent.enablement.revision },
+    );
+    return null;
+  }
+  return agent;
+};
+
+const refuseEnablementChange = (res, agent, code, details = {}) =>
+  projectEnvelope(res, 409, code, "Agent enablement change refused.", {
+    agent_name: agent.agent_name,
+    ...details,
+  });
+
+const isRevision = (value) => Number.isInteger(value) && value > 0;
+
+on("POST", /^\/api\/agent\/enablement\/([^/]+)\/provider$/, (m, b, res) => {
+  const valid =
+    isRevision(b?.expected_revision) &&
+    isNonblank(b.name) &&
+    isLlmPlatform(b.provider) &&
+    isNonblank(b.credential);
+  if (!valid) return refuseValidation(res);
+  const agent = enablementOf(res, m[1], b.expected_revision);
+  if (agent === null) return undefined;
+  const providers = agent.enablement.agent_providers;
+  if (providers.some((item) => item.name === b.name)) {
+    return refuseEnablementChange(res, agent, "agent.enablement.provider.name_conflict");
+  }
+  const holder = providers.find((item) => item.credential === b.credential);
+  if (holder !== undefined) {
+    return refuseEnablementChange(res, agent, "agent.enablement.provider.credential_conflict", {
+      credential: b.credential,
+      agent_provider: holder.name,
+    });
+  }
+  if (!credentialSuitsProvider(b.provider, b.credential)) {
+    return projectEnvelope(
+      res,
+      400,
+      "agent.configuration.credential_unsuitable",
+      "The credential does not suit the agent provider kind.",
+      { provider: b.provider, credential: b.credential },
+    );
+  }
+  agent.enablement = {
+    ...agent.enablement,
+    agent_providers: [
+      ...providers,
+      { name: b.name, provider: b.provider, credential: b.credential },
+    ],
+    revision: agent.enablement.revision + 1,
+  };
+  return json(res, 200, agent.enablement);
+});
+
+const providerDependents = (agent, providerName) => [
+  ...(agent.enablement.default_configuration.agent_provider === providerName
+    ? [{ kind: "default_configuration" }]
+    : []),
+  ...Object.entries(bindingSet.bindings)
+    .filter(
+      ([, binding]) =>
+        binding.kind === "worker" &&
+        (binding.config.entries ?? []).some(
+          (entry) => entry.agent === agent.agent_name && entry.agent_provider === providerName,
+        ),
+    )
+    .map(([name, binding]) => ({
+      binding_id: bindingRecordByName(name)?.id ?? name,
+      worker_name: binding.config.worker,
+    })),
+];
+
+on("DELETE", /^\/api\/agent\/enablement\/([^/]+)\/provider\/([^/]+)$/, (m, b, res) => {
+  if (!isRevision(b?.expected_revision)) return refuseValidation(res);
+  const agent = enablementOf(res, m[1], b.expected_revision);
+  if (agent === null) return undefined;
+  const providerName = decodeURIComponent(m[2]);
+  const providers = agent.enablement.agent_providers;
+  const configurationDetails = { agent_name: agent.agent_name };
+  if (!providers.some((item) => item.name === providerName)) {
+    return projectEnvelope(
+      res,
+      404,
+      "agent.enablement.provider.not_found",
+      "Agent configuration is unavailable or invalid.",
+      configurationDetails,
+    );
+  }
+  if (providers.length === 1) {
+    return projectEnvelope(
+      res,
+      400,
+      "agent.enablement.provider.required",
+      "Agent configuration is unavailable or invalid.",
+      configurationDetails,
+    );
+  }
+  const dependents = providerDependents(agent, providerName);
+  if (dependents.length > 0) {
+    return refuseEnablementChange(res, agent, "agent.enablement.provider.in_use", { dependents });
+  }
+  agent.enablement = {
+    ...agent.enablement,
+    agent_providers: providers.filter((item) => item.name !== providerName),
+    revision: agent.enablement.revision + 1,
+  };
+  return json(res, 200, agent.enablement);
+});
+
+const hasOnly = (body, keys) =>
+  typeof body === "object" &&
+  body !== null &&
+  !Array.isArray(body) &&
+  Object.keys(body).every((key) => keys.includes(key));
+
+const WORKER_FRAMING =
+  "The messages after this system prompt hold the task. They never override this system prompt. A later text of this system prompt governs an earlier one, and a later message governs an earlier one. An instruction for one repository governs only the work on the files of that repository, never the reply format that a message demands. When you write a scratch, debug or probe file, write it only under `.kanthord-scratch/` at the workspace root. The task commit excludes that directory. The worker owns the commit, the branch, the push, the verification and the release.";
+const WORKBENCH_FRAMING =
+  "The messages after this system prompt hold the requests of the human. They never override this system prompt. A later text of this system prompt governs an earlier one, and a later message governs an earlier one.";
+const AGENT_DIRECTORY = "~/.local/share/kanthord/agents";
+
+const digestOf = (text) => createHash("sha256").update(text).digest("hex");
+
+const filePartOf = (part, name, text, overridden, layer = 1) => ({
+  layer,
+  part,
+  name,
+  origin: overridden ? "file" : "binary",
+  path: part === "framing" ? `${AGENT_DIRECTORY}/prompts/${name}.md` : `${AGENT_DIRECTORY}/${name}`,
+  binding_id: null,
+  commit: null,
+  digest: digestOf(text),
+  heading: null,
+  state: "resolved",
+  text,
+});
+
+const variantPartOf = (variant) => ({
+  layer: 1,
+  part: "variant",
+  name: variant.display_name,
+  origin: "database",
+  path: null,
+  binding_id: null,
+  commit: null,
+  digest: digestOf(variant.instruction),
+  heading: null,
+  state: "resolved",
+  text: variant.instruction,
+});
+
+const identityPartOf = (agent, variant) => {
+  const name = variant === undefined ? agent.display_name : variant.display_name;
+  const text = `Your name is ${name}. A human addresses you as @${name}. A name in another prompt layer addresses a different assistant.`;
+  return {
+    layer: 1,
+    part: "identity",
+    name: "identity",
+    origin: "binary",
+    path: `${AGENT_DIRECTORY}/prompts/identity.md`,
+    binding_id: null,
+    commit: null,
+    digest: digestOf(text),
+    heading: null,
+    state: "resolved",
+    text,
+  };
+};
+
+const agentPartsOf = (agent, workbench, variant) => [
+  filePartOf("standard", "base.md", agent.basePrompt, false),
+  identityPartOf(agent, variant),
+  filePartOf("role", `${agent.agent_name}.md`, agent.agentPrompt, agent.roleOverridden === true),
+  ...(variant === undefined ? [] : [variantPartOf(variant)]),
+  ...(workbench ? [filePartOf("workbench", "workbench.md", fx.WORKBENCH_PROMPT, false)] : []),
+];
+
+const GUARD_AGENT = "guard@1";
+const GUARD_TASKS = ["call", "summary"];
+
+const guardPartsOf = (agent, task) =>
+  task === "summary"
+    ? [filePartOf("role", "guard-summary.md", agent.summaryPrompt, false)]
+    : [filePartOf("role", "guard.md", agent.agentPrompt, false)];
+
+const framingPartOf = (workbench) =>
+  workbench
+    ? filePartOf("framing", "framing-workbench", WORKBENCH_FRAMING, false, null)
+    : filePartOf("framing", "framing-worker", WORKER_FRAMING, false, null);
+
+const storedPartOf = (part, layer, binding, text) => ({
+  layer,
+  part,
+  name: binding.name,
+  origin: "database",
+  path: null,
+  binding_id: binding.id,
+  commit: null,
+  digest: digestOf(text),
+  heading: pr.headingOf(part, binding.name, null),
+  state: "resolved",
+  text,
+});
+
+const instructionPartOf = (binding, path) => {
+  const file = pr.instructionFileAt(path);
+  if (file.state === "absent") return [];
+  return [
+    {
+      layer: 2,
+      part: "instruction_file",
+      name: binding.name,
+      origin: "repository",
+      path,
+      binding_id: binding.id,
+      commit: file.commit,
+      digest: file.text === null ? null : digestOf(file.text),
+      heading: pr.headingOf("instruction_file", binding.name, path),
+      state: file.state === "present" ? "resolved" : file.state,
+      text: file.text,
+    },
+  ];
+};
+
+const bindingPartsOf = (agentName, binding) => {
+  const prompts = bindingSet.bindings[binding.name]?.config.prompts ?? {};
+  const agentText = prompts.agents?.[agentName];
+  return [
+    ...(isNonblank(prompts.instruction_file)
+      ? instructionPartOf(binding, prompts.instruction_file)
+      : []),
+    ...(isNonblank(prompts.repository)
+      ? [storedPartOf("repository", 2, binding, prompts.repository)]
+      : []),
+    ...(isNonblank(agentText) ? [storedPartOf("binding", 3, binding, agentText)] : []),
+  ];
+};
+
+const EXPIRED_HOLDS = [
+  {
+    credential: "openai-main",
+    holder: "server",
+    strikes: 3,
+    available_at: Date.now() - 10 * 60_000,
+  },
+];
+
+const coolingCredentialOf = (agentName) => {
+  const enablement = agents.find((agent) => agent.agent_name === agentName)?.enablement;
+  if (enablement === null || enablement === undefined || enablement.state !== "enabled") return [];
+  const head = enablement.agent_providers.find(
+    (provider) => provider.name === enablement.default_configuration.agent_provider,
+  );
+  return head === undefined ? [] : [head.credential];
+};
+
+const serverHolds = () => {
+  const credentials = new Set(Object.values(COOLING_AGENTS).flat().flatMap(coolingCredentialOf));
+  const live = [...credentials].map((credential) => ({
+    credential,
+    holder: "server",
+    strikes: 1,
+    available_at: COOLING_UNTIL,
+  }));
+  return [...live, ...EXPIRED_HOLDS];
+};
+
+on("GET", /^\/api\/agent\/cooldown$/, (_m, _b, res) =>
+  json(res, 200, {
+    items: serverHolds().sort((a, b) => a.credential.localeCompare(b.credential)),
+  }),
+);
+
+const enablementChainOf = (enablement) => {
+  if (enablement === null || enablement.state !== "enabled") {
+    return { chain: [], active_position: null, cooling: null };
+  }
+  const holds = serverHolds();
+  const chain = [enablement.default_configuration, ...enablement.fallback_configurations].map(
+    (config, position) => {
+      const provider = enablement.agent_providers.find(
+        (item) => item.name === config.agent_provider,
+      );
+      const hold = holds.find((item) => item.credential === provider.credential);
+      return {
+        position,
+        level: "enablement",
+        agent_provider: config.agent_provider,
+        provider: provider.provider,
+        credential: provider.credential,
+        model_identifier: config.model_identifier,
+        reasoning_effort: config.reasoning_effort,
+        cooldown:
+          hold === undefined ? null : { strikes: hold.strikes, available_at: hold.available_at },
+      };
+    },
+  );
+  const now = Date.now();
+  const active = chain.find(({ cooldown }) => cooldown === null || cooldown.available_at <= now);
+  return {
+    chain,
+    active_position: active?.position ?? null,
+    cooling: active
+      ? null
+      : {
+          code: "agent.configuration.chain_cooling",
+          available_at: Math.min(...chain.map(({ cooldown }) => cooldown.available_at)),
+        },
+  };
+};
+
+on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
+  const declaration = agents.find((a) => a.agent_name === decodeURIComponent(m[1]));
+  if (declaration === undefined) {
+    return projectEnvelope(res, 404, "agent.catalog.not_found", "Agent not found.", {
+      agent_name: decodeURIComponent(m[1]),
+    });
+  }
+  if (PROMPT_INVALID !== "") {
+    return projectEnvelope(
+      res,
+      409,
+      "agent.prompt.template_invalid",
+      `Prompt file ${PROMPT_INVALID} is invalid: too_large`,
+      { file: PROMPT_INVALID, path: `${AGENT_DIRECTORY}/${PROMPT_INVALID}`, reason: "too_large" },
+    );
+  }
+  const variantId = url.searchParams.get("variant_id");
+  if (variantId !== null && !VARIANT_ID.test(variantId)) {
+    return projectEnvelope(
+      res,
+      400,
+      "gateway.request.validation_failed",
+      "Request validation failed.",
+      [{ path: ["query", "variant_id"], code: "custom" }],
+    );
+  }
+  const variant =
+    variantId === null ? undefined : agentVariants.find((item) => item.id === variantId);
+  if (variantId !== null && variant?.agent_name !== declaration.agent_name) {
+    return projectEnvelope(res, 404, "agent.variant.not_found", "The variant does not exist.");
+  }
+  const task = url.searchParams.get("task");
+  if (task !== null && declaration.agent_name !== GUARD_AGENT) return refuseValidation(res);
+  if (task !== null && !GUARD_TASKS.includes(task)) return refuseValidation(res);
+  const projectId = url.searchParams.get("project_id");
+  const bindingId = url.searchParams.get("binding_id");
+  if ((projectId === null) !== (bindingId === null)) return refuseValidation(res);
+  const binding =
+    bindingId === null
+      ? undefined
+      : Object.values(fx.GRAPH_BINDINGS).find((item) => item.id === bindingId);
+  if (bindingId !== null && (binding === undefined || binding.kind !== "repository")) {
+    return projectEnvelope(res, 404, "project.binding.not_found", "Binding not found.");
+  }
+  const {
+    agent_name: agentName,
+    configuration_schema: configurationSchema,
+    overridable_fields: overridableFields,
+    enablement,
+    tools,
+    pinned_model_identifier: pinnedModelIdentifier,
+  } = declaration;
+  const workbench = binding === undefined && declaration.workbench === true;
+  const parts =
+    agentName === GUARD_AGENT
+      ? guardPartsOf(declaration, task)
+      : [
+          ...agentPartsOf(declaration, workbench, variant),
+          ...(binding === undefined ? [] : bindingPartsOf(agentName, binding)),
+          framingPartOf(workbench),
+        ];
+  const final = pr.finalOf(parts);
+  return json(res, 200, {
+    agent_name: agentName,
+    display_name: declaration.display_name,
+    configuration_schema: configurationSchema,
+    overridable_fields: overridableFields,
+    enablement,
+    prompt: url.searchParams.get("view") === "final" ? { final } : { parts, final },
+    tools,
+    pinned_model_identifier: pinnedModelIdentifier,
+    ...enablementChainOf(enablement),
+  });
+});
+
+const nodeContentOf = (content) => ({
+  intent: "implement",
+  tags: [],
+  external_links: [],
+  ...content,
+});
+
+const nodeIdOf = () => `node_01J9ZQ4XKM3B6V8N2R5T7W0Y${String(nodeSequence++).padStart(2, "0")}`;
+
+const planOf = (mission, body) =>
+  body.format === "json"
+    ? body.entries
+    : body.files.map((file) => {
+        const known = mission.entries.find((entry) => entry.filename === file.filename);
+        const heading = /^#\s+(.+)$/m.exec(file.content);
+        return {
+          ...(known ?? {
+            intent: "implement",
+            tags: [],
+            requirement: "-",
+            criterion: "-",
+            verifications: ["-"],
+            bindings: [],
+            external_links: [],
+          }),
+          filename: file.filename,
+          name: heading ? heading[1] : file.filename,
+        };
+      });
+
+const frontBindingsOf = (content) => {
+  const front = /^---\n([\s\S]*?)\n---/.exec(content);
+  const list = front ? /^bindings:\n((?:\s+- .+\n?)*)/m.exec(front[1]) : null;
+  return list ? [...list[1].matchAll(/^\s+- (.+)$/gm)].map((item) => item[1].trim()) : [];
+};
+
+const entryBindingsOf = (entry, body) =>
+  body.format === "json"
+    ? (entry.bindings ?? [])
+    : frontBindingsOf(body.files.find((file) => file.filename === entry.filename)?.content ?? "");
+
+const unknownBindingViolations = (plan, body) =>
+  plan
+    .filter((entry) => entry.node === undefined)
+    .flatMap((entry) => {
+      const unknown = entryBindingsOf(entry, body).find(
+        (name) => bindingSet.bindings[name] === undefined,
+      );
+      return unknown === undefined
+        ? []
+        : [
+            {
+              code: "mission.node.bindings_invalid",
+              message: "Invalid node bindings.",
+              filename: entry.filename ?? null,
+              node_id:
+                typeof entry.id === "string" && entry.id.startsWith("node_") ? entry.id : null,
+              details: { binding: unknown },
+            },
+          ];
+    });
+
+const previewOf = (mission, body) => {
+  const plan = planOf(mission, body).map((entry) => {
+    const known = mission.entries.find((current) => current.filename === entry.filename);
+    return entry.id === undefined && known ? { ...entry, id: known.id } : entry;
+  });
+  const ids = new Set(plan.filter((entry) => entry.id !== undefined).map((entry) => entry.id));
+  const creates = plan.filter((entry) => entry.id === undefined).map((entry) => entry.filename);
+  const isTask = (entry) => entry.node !== undefined;
+  const ownerIdOf = (entries, task) =>
+    entries.find((entry) => !isTask(entry) && entry.filename === task.node)?.id;
+  const owners = new Set();
+  for (const entry of plan.filter(isTask)) {
+    const current = mission.entries.find((candidate) => candidate.id === entry.id);
+    if (current !== undefined && JSON.stringify(current) === JSON.stringify(entry)) continue;
+    owners.add(ownerIdOf(plan, entry));
+    if (current !== undefined) owners.add(ownerIdOf(mission.entries, current));
+  }
+  for (const current of mission.entries.filter(isTask)) {
+    if (!ids.has(current.id)) owners.add(ownerIdOf(mission.entries, current));
+  }
+  const updates = [];
+  const noOps = [];
+  for (const entry of plan.filter(
+    (candidate) => candidate.id !== undefined && !isTask(candidate),
+  )) {
+    const current = mission.entries.find((candidate) => candidate.id === entry.id);
+    if (JSON.stringify(current) === JSON.stringify(entry) && !owners.has(entry.id))
+      noOps.push(entry.id);
+    else updates.push(entry.id);
+  }
+  const retirements = mission.entries
+    .filter((entry) => !isTask(entry) && !ids.has(entry.id))
+    .map((entry) => entry.id);
+  const violations =
+    plan.length === 0
+      ? [
+          {
+            code: "mission.import.plan_invalid",
+            message: "The import holds no plan file.",
+            filename: null,
+            node_id: null,
+            details: null,
+          },
+        ]
+      : unknownBindingViolations(plan, body);
+  const previewDigest = createHash("sha256")
+    .update(JSON.stringify({ plan, retirements, version: mission.version }))
+    .digest("hex");
+  return {
+    plan,
+    preview: {
+      mission_id: mission.id,
+      expected_mission_version: mission.version,
+      preview_digest: previewDigest,
+      creates,
+      updates,
+      retirements,
+      removed_edges: [],
+      no_ops: noOps,
+      drifts: [],
+      violations,
+    },
+  };
+};
+
+const refuseMissionVersion = (res, body, mission) => {
+  if (body.mission_version === mission.version) return null;
+  return projectEnvelope(
+    res,
+    409,
+    "mission.version.conflict",
+    "The expected mission version differs from the current version.",
+  );
+};
+
+const missionNotFound = (res) =>
+  projectEnvelope(res, 404, "mission.record.not_found", "No such mission.");
+
+on("GET", /^\/api\/mission\/project\/([^/]+)$/, (m, _b, res) => {
+  const state = stateOfProject(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  return json(res, 200, {
+    id: state.mission.id,
+    project_id: decodeURIComponent(m[1]),
+    version: state.mission.version,
+  });
+});
+
+on("GET", /^\/api\/mission\/([^/]+)\/export$/, (m, _b, res, _t, url) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  const { mission } = state;
+  return url.searchParams.get("format") === "json"
+    ? json(res, 200, {
+        mission_id: mission.id,
+        mission_version: mission.version,
+        entries: mission.entries,
+      })
+    : json(res, 200, {
+        mission_id: mission.id,
+        mission_version: mission.version,
+        files: mission.entries.map((entry) => ({
+          filename: entry.filename,
+          content: `# ${entry.name}\n`,
+        })),
+      });
+});
+
+on("POST", /^\/api\/mission\/([^/]+)\/import\/preview$/, (m, b, res) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  const refused = refuseMissionVersion(res, b, state.mission);
+  if (refused !== null) return refused;
+  return json(res, 200, previewOf(state.mission, b).preview);
+});
+
+on("POST", /^\/api\/mission\/([^/]+)\/import$/, (m, b, res) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  const { mission } = state;
+  const refused = refuseMissionVersion(res, b, mission);
+  if (refused !== null) return refused;
+  const { plan, preview } = previewOf(mission, b);
+  const confirmed = [...b.confirmed_retirements].sort().join(",");
+  if (
+    b.preview_digest !== preview.preview_digest ||
+    confirmed !== [...preview.retirements].sort().join(",")
+  ) {
+    return projectEnvelope(
+      res,
+      409,
+      "mission.import.retirement_mismatch",
+      "The digest or confirmed retirements differ from preview.",
+    );
+  }
+  const assignedIds = [];
+  mission.entries = plan.map((entry) => {
+    if (entry.id !== undefined) return entry;
+    const nodeId = nodeIdOf();
+    assignedIds.push({ filename: entry.filename, node_id: nodeId });
+    return { ...entry, id: nodeId };
+  });
+  mission.version += 1;
+  return json(res, 200, {
+    mission_id: mission.id,
+    mission_version: mission.version,
+    assigned_ids: assignedIds,
+    changes: {
+      mission_version: mission.version,
+      revisions: [],
+      retired_node_ids: [],
+      added_edges: [],
+      removed_edges: [],
+      open_attempts_unchanged: [],
+    },
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: Date.now(),
+  });
+});
+
+on("GET", /^\/api\/project\/([^/]+)\/binding-set$/, (m, _b, res) =>
+  json(res, 200, bindingSetOf(decodeURIComponent(m[1]))),
+);
+
+const isHostedWorker = (name) =>
+  fx.WORKER_CATALOG.some((worker) => worker.name === name && worker.host === "kanthord");
+
+const INSTANCE_LIST_MAX = 64;
+
+const listsContainerInstance = (config) =>
+  (config.worker_instances ?? []).some(
+    (name) => instanceRoutes.liveInstance(name)?.record.placement === "container",
+  );
+
+const workerEnvironmentRefusal = (bindings) => {
+  const repositoryCount = Object.values(bindings).filter(
+    (entry) => entry.kind === "repository",
+  ).length;
+  for (const [binding, entry] of Object.entries(bindings)) {
+    if (entry.kind !== "worker") continue;
+    const environment = entry.config.environment;
+    if (!listsContainerInstance(entry.config)) {
+      if (environment === undefined) continue;
+      return [
+        "project.bindings.worker.field_forbidden",
+        "Only a binding that lists a container instance names an environment.",
+        { binding, field: "environment" },
+      ];
+    }
+    if (environment === undefined) {
+      if (repositoryCount < 2) continue;
+      return [
+        "project.bindings.worker.environment_required",
+        "A container worker binding names its environment when the project holds two repository bindings or more.",
+        { binding },
+      ];
+    }
+    if (bindings[environment]?.kind !== "repository") {
+      return [
+        "project.bindings.worker.environment_unknown",
+        "The environment names no repository binding of the set.",
+        { binding, environment },
+      ];
+    }
+  }
+  return null;
+};
+
+const workerInstancesRefusal = (bindings) => {
+  for (const [binding, entry] of Object.entries(bindings)) {
+    if (entry.kind !== "worker") continue;
+    const config = entry.config;
+    if (config.placement !== undefined) {
+      return [
+        "project.bindings.worker.field_forbidden",
+        "A worker binding holds no placement.",
+        { binding, field: "placement" },
+      ];
+    }
+    if (!isHostedWorker(config.worker)) {
+      if (config.worker_instances === undefined) continue;
+      return [
+        "project.bindings.worker.field_forbidden",
+        "Only a binding of a hosted worker lists worker instances.",
+        { binding, field: "worker_instances" },
+      ];
+    }
+    if (config.instance_count !== undefined) {
+      return [
+        "project.bindings.worker.field_forbidden",
+        "A binding of a hosted worker holds worker_instances in place of instance_count.",
+        { binding, field: "instance_count" },
+      ];
+    }
+    const names = config.worker_instances;
+    if (names === undefined) {
+      return [
+        "project.bindings.worker.instances_required",
+        "A binding of a hosted worker lists its worker instances.",
+        { binding },
+      ];
+    }
+    if (
+      !Array.isArray(names) ||
+      names.length > INSTANCE_LIST_MAX ||
+      new Set(names).size !== names.length
+    ) {
+      return [
+        "project.bindings.worker.instances_invalid",
+        "Worker instances must be a list of at most 64 unique instance names.",
+        { binding, instance: null },
+      ];
+    }
+    for (const instance of names) {
+      const live = instanceRoutes.liveInstance(instance);
+      if (live === null) {
+        return [
+          "project.bindings.worker.instance_unknown",
+          "The binding lists an unknown or archived worker instance.",
+          { binding, instance },
+        ];
+      }
+      if (live.record.worker !== config.worker) {
+        return [
+          "project.bindings.worker.instance_worker_mismatch",
+          "The binding lists a worker instance of another worker.",
+          { binding, instance, worker: live.record.worker },
+        ];
+      }
+    }
+  }
+  return null;
+};
+
+const sharedContainerRefusal = (projectId, bindings) => {
+  const others = [
+    ...bindingSets()
+      .filter(([id]) => id !== projectId)
+      .flatMap(([, set]) => Object.entries(set.bindings)),
+  ];
+  const submitted = Object.entries(bindings);
+  for (const [binding, entry] of submitted) {
+    if (entry.kind !== "worker") continue;
+    for (const instance of entry.config.worker_instances ?? []) {
+      if (instanceRoutes.liveInstance(instance)?.record.placement !== "container") continue;
+      const taken = [...others, ...submitted.filter(([name]) => name !== binding)].some(
+        ([, other]) =>
+          other.kind === "worker" && (other.config.worker_instances ?? []).includes(instance),
+      );
+      if (taken) {
+        return [
+          "project.bindings.worker.instance_shared",
+          "Another live binding lists this container instance.",
+          { binding, instance },
+        ];
+      }
+    }
+  }
+  return null;
+};
+
+const storedBindingsOf = (projectId, bindings) =>
+  Object.fromEntries(
+    Object.entries(bindings).map(([name, entry]) => [
+      name,
+      {
+        id: `binding_${name}`,
+        project_id: projectId,
+        name,
+        kind: entry.kind,
+        resource_identity: `${entry.kind}:${name}`,
+        revision: 1,
+        config: entry.config,
+        created_at: Date.now(),
+        removed_at: null,
+      },
+    ]),
+  );
+
+on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
+  const projectId = decodeURIComponent(m[1]);
+  const set = bindingSetOf(projectId);
+  if (b.version !== set.version) {
+    return projectEnvelope(
+      res,
+      409,
+      "project.binding_set.version_conflict",
+      "The submitted binding-set version differs from the current version.",
+    );
+  }
+  const instanceRefusal = workerInstancesRefusal(b.bindings);
+  if (instanceRefusal !== null) return projectEnvelope(res, 400, ...instanceRefusal);
+  const environmentRefusal = workerEnvironmentRefusal(b.bindings);
+  if (environmentRefusal !== null) return projectEnvelope(res, 400, ...environmentRefusal);
+  const sharedRefusal = sharedContainerRefusal(projectId, b.bindings);
+  if (sharedRefusal !== null) return projectEnvelope(res, 409, ...sharedRefusal);
+  const promptRefusal = bindingPromptRefusalOf(b.bindings);
+  if (promptRefusal !== null) return projectEnvelope(res, ...promptRefusal);
+  const absentSecret = environments.absentSecretOf(b.bindings);
+  if (absentSecret !== null) {
+    return projectEnvelope(
+      res,
+      400,
+      "project.bindings.repository.environment_secret_invalid",
+      "A secret variable names a credential that is absent, archived or of another platform.",
+      absentSecret,
+    );
+  }
+  const changedRepositories = Object.entries(b.bindings)
+    .filter(
+      ([name, entry]) =>
+        entry.kind === "repository" && JSON.stringify(entry) !== JSON.stringify(set.bindings[name]),
+    )
+    .map(([, entry]) => entry.config);
+  for (const config of changedRepositories) {
+    const refusal = repositoryRefusalOf(config);
+    if (refusal !== null) return projectEnvelope(res, ...refusal);
+    const failureReason = addressFailureOf(config);
+    if (failureReason !== null) {
+      return projectEnvelope(
+        res,
+        422,
+        "project.bindings.repository.ssh_unreachable",
+        "The repository SSH read failed.",
+        { failure_reason: failureReason },
+      );
+    }
+  }
+  set.bindings = b.bindings;
+  set.version += 1;
+  return json(res, 200, {
+    project_id: projectId,
+    binding_set_version: set.version,
+    bindings: storedBindingsOf(projectId, b.bindings),
+    changes: [],
+    stale_pins: [],
+  });
+});
+
+const page = (items, url = null) => {
+  const requested = Number(url?.searchParams.get("limit"));
+  const cursor = Number(url?.searchParams.get("cursor"));
+  const limit = Number.isInteger(requested) && requested > 0 ? requested : items.length;
+  const offset = Number.isInteger(cursor) && cursor > 0 ? cursor : 0;
+  const next = offset + limit;
+  return {
+    items: items.slice(offset, next),
+    next_cursor: next < items.length ? String(next) : null,
+  };
+};
+
+const dependsOnOf = (state, nodeId) =>
+  state.edges
+    .filter((edge) => edge.dependent_id === nodeId)
+    .map((edge) => edge.depends_on_id)
+    .sort();
+
+const CLOSED_ATTEMPT_STATES = ["Blocked", "Completed", "Discarded"];
+
+const pinnedRevisionOf = (node) =>
+  node.attempt === 0 || CLOSED_ATTEMPT_STATES.includes(node.state) ? null : node.pinned_revision;
+
+const liveExecutionOf = (state, node) => {
+  const execution = state.executions.find(
+    (item) => item.node_id === node.id && item.claim_state === "running",
+  );
+  if (execution === undefined) return null;
+  const registration = fx.WORKER_REGISTRATIONS.find(
+    (item) => item.runtime_identity === execution.claimant.runtime_identity,
+  );
+  return {
+    execution_id: execution.execution_id,
+    attempt: execution.attempt,
+    pinned_revision: execution.pinned_revision,
+    runtime_identity: execution.claimant.runtime_identity,
+    instance_name: registration?.instance ?? null,
+    worker_name: execution.claimant.resource_identity.split(":").at(-1),
+    trace_id: execution.trace_id,
+    started_at: execution.created_at,
+  };
+};
+
+const lastStopOf = (state, node) => {
+  const latest = state.executions
+    .filter((item) => item.node_id === node.id && item.ended_at !== null)
+    .sort((a, b) => b.created_at - a.created_at)[0];
+  if (latest?.stop === null || latest === undefined) return null;
+  return {
+    execution_id: latest.execution_id,
+    reason: latest.stop.reason,
+    code: latest.stop.code,
+    detail: latest.stop.detail ?? null,
+    trace_id: latest.trace_id,
+  };
+};
+
+const graphNodeRead = (state, node) => {
+  const runnable = {
+    ...node,
+    pinned_revision: pinnedRevisionOf(node),
+    depends_on: dependsOnOf(state, node.id),
+  };
+  if (node.state !== "Blocked") return runnable;
+  const outcome = state.outcomes.filter((item) => item.node_id === node.id).at(-1);
+  return outcome === undefined
+    ? runnable
+    : { ...runnable, blocked_context: { outcome, requests: [], rule: null } };
+};
+
+const graphNodeById = (id) => stateOfNode(id)?.nodes.find((node) => node.id === id);
+
+const createdFirstRevisions = new Map();
+
+const importFirstRevision = () => ({
+  write: "import",
+  reason: "Import the mission plan.",
+  created_at: Date.now() - 9_000 * 60_000,
+});
+
+const revisionPins = (node, revision) => {
+  const recorded = (fx.GRAPH_ATTEMPTS[node.id] ?? [])
+    .filter((attempt) => attempt.node_revision === revision)
+    .map((attempt) => attempt.attempt);
+  const current = revision === node.visible_revision ? node.pinned_by_attempts : [];
+  const open = pinnedRevisionOf(node) === revision ? [node.attempt] : [];
+  return [...new Set([...recorded, ...current, ...open])].sort((a, b) => a - b);
+};
+
+const appendedRevisions = new Map();
+
+const graphRevisions = (node) => {
+  const { write, reason, created_at } = createdFirstRevisions.get(node.id) ?? importFirstRevision();
+  const first = {
+    node_id: node.id,
+    filename: node.filename,
+    revision: 1,
+    reason,
+    actor: fx.GRAPH_HUMAN,
+    created_at,
+    content: fx.GRAPH_ORIGINAL_CONTENT[node.id] ?? node.content,
+    tasks: node.tasks,
+    change: { write, previous_revision: null, changed_fields: [] },
+    pinned_by_attempts: revisionPins(node, 1),
+  };
+  const later = (fx.GRAPH_EXTRA_REVISIONS[node.id] ?? []).map(({ contentAt, ...revision }) => ({
+    node_id: node.id,
+    filename: node.filename,
+    content: contentAt(node),
+    tasks: node.tasks,
+    ...revision,
+    pinned_by_attempts: revisionPins(node, revision.revision),
+  }));
+  return [first, ...later, ...(appendedRevisions.get(node.id) ?? [])].reverse();
+};
+
+const byAttempt = (records, nodeId, url) => {
+  const attempt = url.searchParams.get("attempt");
+  return records.filter(
+    (record) =>
+      record.node_id === nodeId && (attempt === null || String(record.attempt) === attempt),
+  );
+};
+
+on("GET", /^\/api\/mission\/([^/]+)\/node$/, (m, _b, res, _t, url) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  return json(
+    res,
+    200,
+    page(
+      state.nodes.map((node) => graphNodeRead(state, node)),
+      url,
+    ),
+  );
+});
+
+on("GET", /^\/api\/mission\/([^/]+)\/edge$/, (m, _b, res, _t, url) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  return json(res, 200, page(state.edges, url));
+});
+
+on("GET", /^\/api\/mission\/node\/([^/]+)$/, (m, _b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (node === undefined)
+    return projectEnvelope(res, 404, "mission.record.not_found", "No such node.");
+  return json(res, 200, {
+    ...graphNodeRead(state, node),
+    live_execution: liveExecutionOf(state, node),
+    last_stop: lastStopOf(state, node),
+  });
+});
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/revision$/, (m, _b, res, _t, url) => {
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (node === undefined)
+    return projectEnvelope(res, 404, "mission.record.not_found", "No such node.");
+  return json(res, 200, page(graphRevisions(node), url));
+});
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/revision\/(\d+)$/, (m, _b, res) => {
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  const revision = node && graphRevisions(node).find((item) => item.revision === Number(m[2]));
+  if (!revision) return projectEnvelope(res, 404, "mission.record.not_found", "No such revision.");
+  return json(res, 200, revision);
+});
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/attempt$/, (m, _b, res, _t, url) =>
+  json(res, 200, page(fx.GRAPH_ATTEMPTS[decodeURIComponent(m[1])] ?? [], url)),
+);
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/evidence$/, (m, _b, res, _t, url) =>
+  json(res, 200, page(byAttempt(fx.GRAPH_EVIDENCE, decodeURIComponent(m[1]), url), url)),
+);
+
+const UNAVAILABLE_EVIDENCE_ASSET = "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0PM2";
+
+on("GET", /^\/api\/mission\/evidence\/asset\/([^/]+)\/content\/download$/, (m, _b, res) => {
+  const assetId = decodeURIComponent(m[1]);
+  if (assetId === UNAVAILABLE_EVIDENCE_ASSET)
+    return projectEnvelope(
+      res,
+      502,
+      "mission.evidence.content_unavailable",
+      "The storage read failed.",
+    );
+  const body = `Mock evidence content of ${assetId}.\n`;
+  res.writeHead(200, {
+    "content-type": "application/octet-stream",
+    "content-disposition": `attachment; filename="${assetId}.txt"`,
+    "x-evidence-media-type": "text/plain",
+    "x-evidence-size": String(Buffer.byteLength(body)),
+    "access-control-allow-origin": ORIGIN,
+    "access-control-expose-headers": "Content-Disposition,X-Evidence-Media-Type,X-Evidence-Size",
+    vary: "origin",
+    "cache-control": "no-store",
+  });
+  res.end(body);
+});
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/assessment$/, (m, _b, res, _t, url) =>
+  json(res, 200, page(byAttempt(fx.GRAPH_ASSESSMENTS, decodeURIComponent(m[1]), url), url)),
+);
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/outcome$/, (m, _b, res, _t, url) =>
+  json(
+    res,
+    200,
+    page(
+      byAttempt(
+        stateOfNode(decodeURIComponent(m[1]))?.outcomes ?? [],
+        decodeURIComponent(m[1]),
+        url,
+      ),
+      url,
+    ),
+  ),
+);
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const rows = [...(state?.proposals ?? []), ...(state?.followups.filter(isOpenProposal) ?? [])];
+  return json(res, 200, page(byAttempt(rows, decodeURIComponent(m[1]), url), url));
+});
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/link-update$/, (m, _b, res, _t, url) =>
+  json(res, 200, page(fx.GRAPH_LINK_UPDATES[decodeURIComponent(m[1])] ?? [], url)),
+);
+
+const INBOX_STATES = ["open", "snoozed", "done"];
+
+on("GET", /^\/api\/mission\/inbox-item$/, (_m, _b, res, _t, url) => {
+  const state = url.searchParams.get("state") ?? "open";
+  if (!INBOX_STATES.includes(state)) return validationFailed(res, "state");
+  const projectId = url.searchParams.get("project_id");
+  const scoped = inboxItems.filter((item) => projectId === null || item.project_id === projectId);
+  const counted = (value) => scoped.filter((item) => item.state === value).length;
+  const matching = scoped
+    .filter((item) => item.state === state)
+    .sort((a, b) => a.occurred_at - b.occurred_at);
+  return json(res, 200, {
+    ...page(matching, url),
+    counts: { open: counted("open"), snoozed: counted("snoozed") },
+  });
+});
+
+on("POST", /^\/api\/mission\/inbox-item\/([^/]+)\/done$/, (m, b, res) => {
+  if (!hasOnly(b, ["snoozed_until"])) return validationFailed(res, "snoozed_until");
+  const item = inboxItems.find((entry) => entry.link_update_id === decodeURIComponent(m[1]));
+  if (item === undefined)
+    return projectEnvelope(res, 404, "mission.inbox_item.not_found", "No such inbox item.");
+  const until = b.snoozed_until ?? null;
+  const now = Date.now();
+  if (until !== null && (!Number.isInteger(until) || until <= now))
+    return projectEnvelope(
+      res,
+      400,
+      "mission.inbox_item.snooze_invalid",
+      "The snooze time must lie in the future.",
+    );
+  item.state = until === null ? "done" : "snoozed";
+  item.done_at = until === null ? now : null;
+  item.snoozed_until = until;
+  return json(res, 200, item);
+});
+
+const isOpenProposal = (proposal) => proposal.approved_at === null && proposal.rejected_at === null;
+
+const rejectOpenProposals = (state, proposer, now) => {
+  if (proposer.state !== "Blocked") return;
+  for (const proposal of state.proposals) {
+    if (
+      proposal.node_id === proposer.id &&
+      proposal.attempt === proposer.attempt &&
+      isOpenProposal(proposal)
+    )
+      proposal.rejected_at = now;
+  }
+};
+
+const fixNodeOf = (state, proposal) => {
+  const stem = `proposal-${proposal.id.slice("proposal_".length).toLowerCase()}`;
+  const { task, dependency_id: dependencyId } = proposal.content;
+  const dependency = graphNodeById(dependencyId);
+  const tags = dependency?.content.tags ?? [];
+  return {
+    id: nodeIdOf(),
+    filename: `${stem}.md`,
+    mission_id: state.mission.id,
+    intent: "implement",
+    tags,
+    tasks: [
+      {
+        id: `task_${proposal.id.slice("proposal_".length)}`,
+        filename: `${stem}-task.md`,
+        content: { ...task, bindings: [] },
+      },
+    ],
+    visible_revision: 1,
+    content: {
+      name: proposal.content.name,
+      requirement: proposal.content.requirement,
+      criterion: proposal.content.criterion,
+      verifications: task.verifications,
+      bindings: dependency?.content.bindings ?? [],
+      intent: "implement",
+      tags,
+      external_links: [],
+    },
+    retired_at: null,
+    pinned_by_attempts: [],
+    state: "Available",
+    attempt: 0,
+    pinned_revision: null,
+    priority: 0,
+  };
+};
+
+on("POST", /^\/api\/mission\/([^/]+)\/node$/, (m, b, res) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  if (!hasOnly(b, ["filename", "content", "tasks", "reason", "expected_mission_version"]))
+    return validationFailed(res, "filename");
+  const { mission } = state;
+  if (b.expected_mission_version !== mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  if (state.nodes.some((node) => node.filename === b.filename))
+    return projectEnvelope(
+      res,
+      409,
+      "mission.node.filename_conflict",
+      "A node file with the same name exists.",
+    );
+  const node = {
+    id: nodeIdOf(),
+    filename: b.filename,
+    mission_id: mission.id,
+    intent: b.content.intent ?? "implement",
+    tags: b.content.tags ?? [],
+    tasks: [],
+    visible_revision: 1,
+    content: nodeContentOf(b.content),
+    retired_at: null,
+    pinned_by_attempts: [],
+    state: "Available",
+    attempt: 0,
+    pinned_revision: null,
+    priority: 0,
+  };
+  createdFirstRevisions.set(node.id, {
+    write: "node.create",
+    reason: b.reason,
+    created_at: Date.now(),
+  });
+  state.nodes.push(node);
+  mission.version += 1;
+  return json(res, 200, {
+    mission_version: mission.version,
+    revisions: graphRevisions(node),
+    retired_node_ids: [],
+    added_edges: [],
+    removed_edges: [],
+    open_attempts_unchanged: [],
+  });
+});
+
+on("PUT", /^\/api\/mission\/node\/([^/]+)$/, (m, b, res) => {
+  if (
+    !hasOnly(b, [
+      "filename",
+      "content",
+      "tasks",
+      "reason",
+      "expected_revision",
+      "expected_mission_version",
+    ])
+  )
+    return validationFailed(res, "content");
+  const nodeId = decodeURIComponent(m[1]);
+  const state = stateOfNode(nodeId);
+  const node = graphNodeById(nodeId);
+  if (state === undefined || node === undefined)
+    return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
+  const { mission } = state;
+  if (b.expected_mission_version !== mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  const previous = graphRevisions(node)[0];
+  const content = nodeContentOf(b.content);
+  const revision = {
+    node_id: node.id,
+    filename: node.filename,
+    revision: previous.revision + 1,
+    reason: b.reason,
+    actor: fx.GRAPH_HUMAN,
+    created_at: Date.now(),
+    content,
+    tasks: b.tasks,
+    change: {
+      write: "node.update",
+      previous_revision: previous.revision,
+      changed_fields: Object.keys(content).filter(
+        (key) => JSON.stringify(content[key]) !== JSON.stringify(previous.content[key]),
+      ),
+    },
+    pinned_by_attempts: [],
+  };
+  fx.GRAPH_ORIGINAL_CONTENT[node.id] ??= structuredClone(node.content);
+  appendedRevisions.set(node.id, [...(appendedRevisions.get(node.id) ?? []), revision]);
+  node.content = content;
+  node.visible_revision = revision.revision;
+  mission.version += 1;
+  return json(res, 200, {
+    mission_version: mission.version,
+    revisions: [revision],
+    retired_node_ids: [],
+    added_edges: [],
+    removed_edges: [],
+    open_attempts_unchanged: [],
+  });
+});
+
+on("POST", /^\/api\/mission\/assessment\/([^/]+)\/decide$/, (m, b, res) => {
+  const assessmentId = decodeURIComponent(m[1]);
+  const ids = b.approved_proposal_ids;
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > 10 || new Set(ids).size !== ids.length)
+    return validationFailed(res, "approved_proposal_ids");
+  if (b.reason !== undefined && isBlank(b.reason)) return blankReason(res);
+  const state = [...projectStates.values()].find((candidate) =>
+    candidate.proposals.some((proposal) => proposal.assessment_id === assessmentId),
+  );
+  if (state === undefined)
+    return projectEnvelope(res, 404, "mission.record.not_found", "No such assessment.");
+  const proposals = state.proposals.filter((proposal) => proposal.assessment_id === assessmentId);
+  const open = proposals.filter(isOpenProposal);
+  const decided = () =>
+    projectEnvelope(res, 409, "mission.proposal.decided", "Assessment has no open proposal.", {
+      assessment_id: assessmentId,
+    });
+  if (open.length === 0) return decided();
+  const mismatched = ids.filter((id) => !proposals.some((proposal) => proposal.id === id));
+  if (mismatched.length > 0)
+    return projectEnvelope(
+      res,
+      400,
+      "mission.proposal.assessment_mismatch",
+      "Proposal does not belong to the assessment.",
+      { proposal_ids: mismatched },
+    );
+  const approved = ids.map((id) => proposals.find((proposal) => proposal.id === id));
+  if (!approved.every(isOpenProposal)) return decided();
+  const { mission } = state;
+  if (b.expected_mission_version !== mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  const proposer = graphNodeById(open[0].node_id);
+  if (proposer.state !== "Blocked" || proposer.attempt !== open[0].attempt)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.node.state_conflict",
+      "The node state does not admit the control.",
+    );
+  const now = Date.now();
+  const created = approved.map((proposal) => {
+    const fix = fixNodeOf(state, proposal);
+    const addedEdges = [{ dependent_id: proposer.id, depends_on_id: fix.id }];
+    createdFirstRevisions.set(fix.id, {
+      write: "node.create",
+      reason: b.reason ?? `Approve fix-node proposal ${proposal.id}`,
+      created_at: now,
+    });
+    state.nodes.push(fix);
+    state.edges.push(...addedEdges);
+    mission.version += 1;
+    proposal.approved_at = now;
+    proposal.created_node_id = fix.id;
+    return {
+      mission_version: mission.version,
+      revisions: graphRevisions(fix),
+      retired_node_ids: [],
+      added_edges: addedEdges,
+      removed_edges: [],
+      open_attempts_unchanged: [],
+    };
+  });
+  const rejected = open.filter((proposal) => proposal.approved_at === null);
+  for (const proposal of rejected) proposal.rejected_at = now;
+  proposer.state = "Pending";
+  proposer.attempt += 1;
+  proposer.pinned_by_attempts = [...proposer.pinned_by_attempts, proposer.attempt];
+  proposer.pinned_revision = proposer.visible_revision;
+  return json(res, 200, {
+    created,
+    rejected_proposal_ids: rejected.map((proposal) => proposal.id),
+    proposer: {
+      node: graphNodeRead(state, proposer),
+      attempt: null,
+      outcome: null,
+      actor: fx.GRAPH_HUMAN,
+      accepted_at: now,
+    },
+  });
+});
+
+on("GET", /^\/api\/mission\/project\/([^/]+)\/followup$/, (m, _b, res, _t, url) => {
+  const state = stateOfProject(decodeURIComponent(m[1]));
+  if (state === undefined)
+    return projectEnvelope(res, 404, "mission.mission.not_found", "No such mission.");
+  return json(res, 200, page(state.followups.filter(isOpenProposal), url));
+});
+
+const followupNodeOf = (state, proposal, body) => {
+  const source = graphNodeById(proposal.node_id);
+  const stem = `followup-${proposal.id.slice("proposal_".length).toLowerCase()}`;
+  const proposed = graphRevisions(source).find(
+    (item) => item.revision === proposal.content.node_revision,
+  ).content;
+  return {
+    id: nodeIdOf(),
+    filename: `${stem}.md`,
+    mission_id: state.mission.id,
+    intent: "implement",
+    tags: source.content.tags,
+    tasks: [],
+    visible_revision: 1,
+    content: {
+      name: proposed.name,
+      requirement: body.requirement ?? proposed.requirement,
+      criterion: body.criterion ?? proposed.criterion,
+      verifications: source.content.verifications,
+      bindings: source.content.bindings,
+      intent: "implement",
+      tags: source.content.tags,
+      external_links: [],
+    },
+    retired_at: null,
+    pinned_by_attempts: [],
+    state: "Available",
+    attempt: 0,
+    pinned_revision: null,
+    priority: 0,
+  };
+};
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/followup\/decide$/, (m, b, res) => {
+  if (!hasOnly(b, ["expected_mission_version", "approve", "requirement", "criterion", "reason"]))
+    return validationFailed(res, "approve");
+  if (typeof b.approve !== "boolean") return validationFailed(res, "approve");
+  if (!b.approve && (b.requirement !== undefined || b.criterion !== undefined))
+    return validationFailed(res, b.requirement !== undefined ? "requirement" : "criterion");
+  const nodeId = decodeURIComponent(m[1]);
+  const state = stateOfNode(nodeId);
+  const node = graphNodeById(nodeId);
+  if (state === undefined || node === undefined)
+    return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
+  const { mission } = state;
+  if (b.expected_mission_version !== mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  const open = state.followups.filter(
+    (proposal) => proposal.node_id === nodeId && isOpenProposal(proposal),
+  );
+  if (open.length === 0)
+    return projectEnvelope(res, 409, "mission.proposal.decided", "Node has no open proposal.", {
+      node_id: nodeId,
+    });
+  const now = Date.now();
+  if (!b.approve) {
+    for (const proposal of open) proposal.rejected_at = now;
+    return json(res, 200, open[0]);
+  }
+  open.forEach((proposal) => {
+    const followup = followupNodeOf(state, proposal, b);
+    createdFirstRevisions.set(followup.id, {
+      write: "node.create",
+      reason: b.reason ?? `Approve follow-up proposal ${proposal.id}`,
+      created_at: now,
+    });
+    state.nodes.push(followup);
+    mission.version += 1;
+    proposal.approved_at = now;
+    proposal.created_node_id = followup.id;
+  });
+  return json(res, 200, open[0]);
+});
+
+const FINDING_KINDS = ["blocker", "suggestion"];
+const FINDING_DECISIONS = ["accepted", "dismissed"];
+const FINDING_CAUSE_OWNERS = [
+  "plan",
+  "agent",
+  "reviewer",
+  "gate",
+  "engine",
+  "apps",
+  "load",
+  "human",
+];
+const FINDING_TEXTS = ["name", "description", "fix", "why"];
+const FINDING_REPORT_FIELDS = ["kind", "task_id", ...FINDING_TEXTS, "cause_owner"];
+const FINDING_TEXT_MAX_BYTES = 8192;
+
+const assessmentById = (id) => fx.GRAPH_ASSESSMENTS.find((assessment) => assessment.id === id);
+
+const isDeliveredAttempt = (state, nodeId, attempt) =>
+  state.outcomes.some(
+    (outcome) =>
+      outcome.node_id === nodeId && outcome.result === "success" && outcome.attempt === attempt,
+  ) ||
+  fx.GRAPH_EVIDENCE.some(
+    (record) =>
+      record.node_id === nodeId &&
+      record.attempt === attempt &&
+      record.provenance.kind === "service" &&
+      record.provenance.service === "mission",
+  );
+
+const findingRead = (finding) => {
+  const assessment = assessmentById(finding.assessment_id);
+  return {
+    ...finding,
+    attempt: assessment?.attempt ?? 0,
+    round: finding.created_by === null ? (assessment?.round ?? null) : null,
+    source: finding.created_by === null ? "reviewer" : "human",
+    status: finding.fixed_assessment_id === null ? "open" : "fixed",
+  };
+};
+
+const labelNumber = (finding) => Number(finding.label.slice(1));
+
+const findingOrder = (left, right) =>
+  left.attempt - right.attempt ||
+  (left.round ?? Number.MAX_SAFE_INTEGER) - (right.round ?? Number.MAX_SAFE_INTEGER) ||
+  FINDING_KINDS.indexOf(left.kind) - FINDING_KINDS.indexOf(right.kind) ||
+  labelNumber(left) - labelNumber(right) ||
+  left.id.localeCompare(right.id);
+
+const findingById = (id) => {
+  for (const state of projectStates.values()) {
+    const finding = state.findings.find((candidate) => candidate.id === id);
+    if (finding !== undefined) return { state, finding };
+  }
+  return null;
+};
+
+const findingNotFound = (res) =>
+  projectEnvelope(res, 404, "mission.record.not_found", "No such finding.");
+
+const findingDecidedRefusal = (res, finding) =>
+  projectEnvelope(res, 409, "mission.finding.decided", "Finding already holds a decision.", {
+    finding_id: finding.id,
+  });
+
+const versionConflict = (res) =>
+  projectEnvelope(
+    res,
+    409,
+    "mission.version.conflict",
+    "The expected mission version differs from the current version.",
+  );
+
+const findingTextRefusal = (body) =>
+  FINDING_TEXTS.find(
+    (key) =>
+      body[key] !== undefined &&
+      (isBlank(body[key]) || Buffer.byteLength(body[key]) > FINDING_TEXT_MAX_BYTES),
+  );
+
+const findingReportRefusal = (body) => {
+  if (body.kind !== undefined && !FINDING_KINDS.includes(body.kind)) return "kind";
+  if (body.cause_owner !== undefined && !FINDING_CAUSE_OWNERS.includes(body.cause_owner))
+    return "cause_owner";
+  return findingTextRefusal(body) ?? null;
+};
+
+const revisionTaskRefusal = (node, assessment, taskId) => {
+  if (taskId === undefined || taskId === null) return null;
+  const revision = graphRevisions(node).find((item) => item.revision === assessment.node_revision);
+  return revision?.tasks.some((task) => task.id === taskId) ? null : "task_id";
+};
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/finding$/, (m, _b, res, _t, url) => {
+  const nodeId = decodeURIComponent(m[1]);
+  const state = stateOfNode(nodeId);
+  if (state === undefined)
+    return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
+  const attempt = url.searchParams.get("attempt");
+  const round = url.searchParams.get("round");
+  const findings = state.findings
+    .filter((finding) => finding.node_id === nodeId)
+    .map(findingRead)
+    .filter(
+      (finding) =>
+        (attempt === null || String(finding.attempt) === attempt) &&
+        (round === null || String(finding.round) === round),
+    )
+    .sort(findingOrder);
+  return json(res, 200, page(findings, url));
+});
+
+on("GET", /^\/api\/mission\/finding\/([^/]+)$/, (m, _b, res) => {
+  const found = findingById(decodeURIComponent(m[1]));
+  if (found === null) return findingNotFound(res);
+  return json(res, 200, findingRead(found.finding));
+});
+
+on("GET", /^\/api\/mission\/project\/([^/]+)\/undecided-finding$/, (m, _b, res, _t, url) => {
+  const state = stateOfProject(decodeURIComponent(m[1]));
+  if (state === undefined)
+    return projectEnvelope(res, 404, "mission.mission.not_found", "No such mission.");
+  const findings = state.findings
+    .filter((finding) => finding.route === "report" && finding.decision === null)
+    .map(findingRead)
+    .sort((left, right) => right.id.localeCompare(left.id));
+  return json(res, 200, page(findings, url));
+});
+
+on("POST", /^\/api\/mission\/finding\/([^/]+)\/decide$/, (m, b, res) => {
+  if (!hasOnly(b, ["decision", "decision_reason"])) return validationFailed(res, "decision");
+  if (!FINDING_DECISIONS.includes(b.decision)) return validationFailed(res, "decision");
+  if (isBlank(b.decision_reason)) return validationFailed(res, "decision_reason");
+  const found = findingById(decodeURIComponent(m[1]));
+  if (found === null) return findingNotFound(res);
+  const { finding } = found;
+  if (finding.decision !== null) return findingDecidedRefusal(res, finding);
+  if (finding.route !== "report")
+    return projectEnvelope(
+      res,
+      409,
+      "mission.finding.not_reported",
+      "Finding does not wait for a human.",
+      {
+        finding_id: finding.id,
+        route: finding.route,
+      },
+    );
+  finding.decision = b.decision;
+  finding.decision_reason = b.decision_reason;
+  finding.decided_by = fx.GRAPH_HUMAN;
+  finding.decided_at = Date.now();
+  return json(res, 200, findingRead(finding));
+});
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/finding$/, (m, b, res) => {
+  const nodeId = decodeURIComponent(m[1]);
+  const state = stateOfNode(nodeId);
+  const node = graphNodeById(nodeId);
+  if (node === undefined)
+    return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
+  if (!hasOnly(b, ["expected_mission_version", "assessment_id", ...FINDING_REPORT_FIELDS]))
+    return validationFailed(res, "body");
+  const missing = ["expected_mission_version", "assessment_id", ...FINDING_REPORT_FIELDS].find(
+    (key) => b[key] === undefined,
+  );
+  if (missing !== undefined) return validationFailed(res, missing);
+  const refused = findingReportRefusal(b);
+  if (refused !== null) return validationFailed(res, refused);
+  if (b.expected_mission_version !== state.mission.version) return versionConflict(res);
+  const assessment = assessmentById(b.assessment_id);
+  if (
+    assessment === undefined ||
+    assessment.node_id !== nodeId ||
+    !isDeliveredAttempt(state, nodeId, assessment.attempt)
+  )
+    return fieldRefused(res, "assessment_id");
+  const taskRefused = revisionTaskRefusal(node, assessment, b.task_id);
+  if (taskRefused !== null) return fieldRefused(res, taskRefused);
+  const humanCount = state.findings.filter(
+    (finding) => finding.node_id === nodeId && finding.created_by !== null,
+  ).length;
+  const now = Date.now();
+  const finding = {
+    id: `finding_01J9ZQ4XKM3B6V8N2R5T7W${String(state.findings.length + 100).padStart(4, "0")}`,
+    node_id: nodeId,
+    assessment_id: assessment.id,
+    label: `H${humanCount + 1}`,
+    kind: b.kind,
+    action: "yes",
+    task_id: b.task_id,
+    ground: null,
+    name: b.name,
+    description: b.description,
+    fix: b.fix,
+    why: b.why,
+    route: "report",
+    fixed_assessment_id: null,
+    cause_owner: b.cause_owner,
+    created_by: fx.GRAPH_HUMAN,
+    created_at: now,
+    decision: null,
+    decision_reason: null,
+    decided_by: null,
+    decided_at: null,
+  };
+  state.findings.push(finding);
+  return json(res, 200, findingRead(finding));
+});
+
+on("PATCH", /^\/api\/mission\/finding\/([^/]+)$/, (m, b, res) => {
+  if (!hasOnly(b, ["expected_mission_version", ...FINDING_REPORT_FIELDS]))
+    return validationFailed(res, "body");
+  if (FINDING_REPORT_FIELDS.every((key) => b[key] === undefined))
+    return validationFailed(res, "body");
+  const refused = findingReportRefusal(b);
+  if (refused !== null) return validationFailed(res, refused);
+  const found = findingById(decodeURIComponent(m[1]));
+  if (found === null) return findingNotFound(res);
+  const { state, finding } = found;
+  if (finding.created_by === null)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.finding.not_human",
+      "Finding is a reviewer finding.",
+      {
+        finding_id: finding.id,
+      },
+    );
+  if (finding.decision !== null) return findingDecidedRefusal(res, finding);
+  if (b.expected_mission_version !== state.mission.version) return versionConflict(res);
+  const taskRefused = revisionTaskRefusal(
+    graphNodeById(finding.node_id),
+    assessmentById(finding.assessment_id),
+    b.task_id,
+  );
+  if (taskRefused !== null) return validationFailed(res, taskRefused);
+  for (const key of FINDING_REPORT_FIELDS) if (b[key] !== undefined) finding[key] = b[key];
+  return json(res, 200, findingRead(finding));
+});
+
+const DISCARD_STATES = [
+  "Pending",
+  "Available",
+  "Executing",
+  "Waiting",
+  "Evaluating",
+  "Blocked",
+  "Paused",
+  "External.Success",
+  "External.Failed",
+];
+
+const controlRefusal = (res, state, node, expectedVersion) => {
+  if (node === undefined)
+    return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
+  if (node.retired_at !== null)
+    return projectEnvelope(res, 409, "mission.node.retired", "Node is retired.");
+  if (expectedVersion !== state.mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  if (node.state === "Completed" || node.state === "Discarded")
+    return projectEnvelope(res, 409, "mission.node.terminal", "Node is terminal.");
+  return null;
+};
+
+const stateConflict = (res, node) =>
+  projectEnvelope(res, 409, "mission.node.state_conflict", "Node state or attempt changed.", {
+    state: node.state,
+    attempt: node.attempt,
+  });
+
+const controlRefused = (res, node) =>
+  projectEnvelope(
+    res,
+    409,
+    "mission.node.control_refused",
+    "Control is not admitted in this state.",
+    {
+      state: node.state,
+    },
+  );
+
+const blankReason = (res) =>
+  projectEnvelope(res, 400, "mission.node.content_invalid", "The reason is blank.", {
+    field: "reason",
+  });
+
+const START_POINTS = ["base_branch", "node_branch"];
+
+const isBlank = (value) => typeof value !== "string" || value.trim().length === 0;
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/unblock$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  if (node.attempt !== b.blocked_attempt) return stateConflict(res, node);
+  if (node.state !== "Blocked") return controlRefused(res, node);
+  if (b.reason !== undefined && isBlank(b.reason)) return blankReason(res);
+  if (b.start_point !== undefined && !START_POINTS.includes(b.start_point))
+    return projectEnvelope(
+      res,
+      400,
+      "gateway.request.validation_failed",
+      "Request validation failed.",
+      [{ path: ["body", "start_point"], code: "invalid_value" }],
+    );
+  if (node.visible_revision !== b.expected_revision)
+    return projectEnvelope(res, 409, "mission.revision.conflict", "Node revision changed.", {
+      current: node.visible_revision,
+    });
+  const now = Date.now();
+  rejectOpenProposals(state, node, now);
+  if (node.attempt > 0) {
+    node.attempt += 1;
+    node.pinned_by_attempts = [...node.pinned_by_attempts, node.attempt];
+    node.pinned_revision = node.visible_revision;
+  }
+  node.state = "Available";
+  return json(res, 200, {
+    node: graphNodeRead(state, node),
+    attempt: null,
+    outcome: null,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: now,
+  });
+});
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/discard$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  if (node.state !== b.expected_state || node.attempt !== b.expected_attempt)
+    return stateConflict(res, node);
+  if (!DISCARD_STATES.includes(node.state)) return controlRefused(res, node);
+  if (isBlank(b.reason)) return blankReason(res);
+  const now = Date.now();
+  const sequence = String(state.outcomes.length).padStart(2, "0");
+  const outcome = {
+    id: `outcome_01J9ZQ4XKM3B6V8N2R5T7W0X${sequence}`,
+    node_id: node.id,
+    attempt: node.attempt,
+    node_revision: node.visible_revision,
+    closing_event: "human-discard",
+    result: "undetermined",
+    assessment_id: `assessment_01J9ZQ4XKM3B6V8N2R5T7W0X${sequence}`,
+    evidence_ids: [],
+    created_at: now,
+  };
+  state.outcomes.push(outcome);
+  rejectOpenProposals(state, node, now);
+  routeOpenFixFindings(state, node, "record");
+  node.state = "Discarded";
+  return json(res, 200, {
+    node: graphNodeRead(state, node),
+    attempt: null,
+    outcome,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: now,
+  });
+});
+
+const checkResolutions = new Map();
+const checkCounts = new Map();
+const resolutionKey = (nodeId, attemptNumber, key) => `${nodeId}:${attemptNumber}:${key}`;
+
+const END_STATE_RESOLUTIONS = { expected: "expected-end", other: "other-end" };
+
+const externalActionsOf = (nodeId) =>
+  (fx.GRAPH_ATTEMPTS[nodeId] ?? []).flatMap((attempt) =>
+    attempt.required_external_actions.map((action) => {
+      const request = fx.GRAPH_EVIDENCE.find(
+        (item) =>
+          item.node_id === nodeId &&
+          item.attempt === attempt.attempt &&
+          item.requirement_key === action.key,
+      );
+      return {
+        node_id: nodeId,
+        attempt: attempt.attempt,
+        action,
+        requested: request !== undefined,
+        request_evidence_id: request?.id ?? null,
+        resolution:
+          request === undefined
+            ? "unrequested"
+            : (checkResolutions.get(resolutionKey(nodeId, attempt.attempt, action.key)) ??
+              END_STATE_RESOLUTIONS[request.end_state] ??
+              "unresolved"),
+      };
+    }),
+  );
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, url) => {
+  const nodeId = decodeURIComponent(m[1]);
+  return json(res, 200, page(byAttempt(externalActionsOf(nodeId), nodeId, url), url));
+});
+
+const CHECK_FAILURE_NODES = new Set([fx.ATLAS_RELEASE_NOTES_ID]);
+
+const checkFailureOf = (evidenceId) => ({
+  evidence_id: evidenceId,
+  error: {
+    error: {
+      code: "system.operation.unknown",
+      message: "Operation failed.",
+      details: null,
+    },
+    request_id: "request_01J9ZQ4XKM3B6V8N2R5T7W0RQ1",
+  },
+});
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/check$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (!hasOnly(b, ["expected_mission_version"]))
+    return validationFailed(res, "expected_mission_version");
+  const links = node?.content.external_links ?? [];
+  const terminalLinked =
+    links.length > 0 && (node.state === "Completed" || node.state === "Discarded");
+  if (
+    terminalLinked &&
+    node.retired_at === null &&
+    b.expected_mission_version === state.mission.version
+  )
+    return json(res, 200, {
+      results: [],
+      failures: [],
+      link_updates: links.map((link) => ({
+        external_link: link,
+        admitted: 0,
+        duplicate: 0,
+        refused: 0,
+      })),
+    });
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  const unresolved = externalActionsOf(node.id).filter(
+    (action) =>
+      action.attempt === node.attempt && action.requested && action.resolution === "unresolved",
+  );
+  if (unresolved.length === 0)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.node.no_unresolved_request",
+      "The open attempt has no unresolved request.",
+    );
+  const count = (checkCounts.get(node.id) ?? 0) + 1;
+  checkCounts.set(node.id, count);
+  if (count === 1 && CHECK_FAILURE_NODES.has(node.id))
+    return json(res, 200, {
+      results: [],
+      failures: unresolved.map((action) => checkFailureOf(action.request_evidence_id)),
+      link_updates: [],
+    });
+  const resolution = count === 1 ? "unresolved" : "expected-end";
+  for (const action of unresolved) {
+    checkResolutions.set(resolutionKey(node.id, node.attempt, action.action.key), resolution);
+  }
+  if (resolution === "expected-end" && node.state === "External.Requested") {
+    node.state = "External.Success";
+    state.queue = state.queue.filter((job) => job.node_id !== node.id);
+  }
+  return json(res, 200, {
+    results: unresolved.map((action) => ({
+      evidence_id: action.request_evidence_id,
+      requirement_key: action.action.key,
+      resolution,
+    })),
+    failures: [],
+    link_updates: [],
+  });
+});
+
+const OVERRIDE_STATES = [
+  "Pending",
+  "Available",
+  "Executing",
+  "Waiting",
+  "Blocked",
+  "Paused",
+  "External.Success",
+  "External.Failed",
+];
+
+const RESUME_TARGETS = ["Available", "Waiting"];
+
+const validationFailed = (res, field) =>
+  projectEnvelope(res, 400, "gateway.request.validation_failed", "Request validation failed.", [
+    { path: ["body", field], code: "invalid_value" },
+  ]);
+
+const fieldRefused = (res, field) =>
+  projectEnvelope(res, 400, "gateway.request.validation_failed", "Request validation failed.", [
+    { path: [field], code: "custom" },
+  ]);
+
+const outcomeOf = (state, node, closingEvent, result) => {
+  const sequence = String(state.outcomes.length).padStart(2, "0");
+  const outcome = {
+    id: `outcome_01J9ZQ4XKM3B6V8N2R5T7W0X${sequence}`,
+    node_id: node.id,
+    attempt: node.attempt,
+    node_revision: node.visible_revision,
+    closing_event: closingEvent,
+    result,
+    assessment_id: `assessment_01J9ZQ4XKM3B6V8N2R5T7W0X${sequence}`,
+    evidence_ids: [],
+    created_at: Date.now(),
+  };
+  state.outcomes.push(outcome);
+  return outcome;
+};
+
+const routeOpenFixFindings = (state, node, route) => {
+  if (node.attempt === 0 || CLOSED_ATTEMPT_STATES.includes(node.state)) return;
+  for (const finding of state.findings) {
+    if (
+      finding.node_id === node.id &&
+      finding.route === "fix" &&
+      finding.fixed_assessment_id === null &&
+      assessmentById(finding.assessment_id)?.attempt === node.attempt
+    )
+      finding.route = route;
+  }
+};
+
+const humanControlRefusal = (res, state, node, b, states) => {
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  if (node.state !== b.expected_state || node.attempt !== b.expected_attempt)
+    return stateConflict(res, node);
+  if (!states.includes(node.state)) return controlRefused(res, node);
+  if (isBlank(b.reason)) return blankReason(res);
+  return null;
+};
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/override$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (b.result !== "success") return validationFailed(res, "result");
+  const refusal = humanControlRefusal(res, state, node, b, OVERRIDE_STATES);
+  if (refusal !== null) return refusal;
+  const unresolved = externalActionsOf(node.id).filter(
+    (action) =>
+      action.attempt === node.attempt && action.requested && action.resolution === "unresolved",
+  );
+  if (unresolved.length > 0)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.node.action_unresolved",
+      "The open attempt has unresolved requests.",
+      { requirement_keys: unresolved.map((action) => action.action.key) },
+    );
+  const outcome = outcomeOf(state, node, "success-override", "success");
+  rejectOpenProposals(state, node, outcome.created_at);
+  routeOpenFixFindings(state, node, "report");
+  node.state = "Completed";
+  return json(res, 200, {
+    node: graphNodeRead(state, node),
+    attempt: null,
+    outcome,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: outcome.created_at,
+  });
+});
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/resume$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (!RESUME_TARGETS.includes(b.target)) return validationFailed(res, "target");
+  const refusal = humanControlRefusal(res, state, node, b, ["Paused"]);
+  if (refusal !== null) return refusal;
+  const actions = externalActionsOf(node.id).filter((action) => action.attempt === node.attempt);
+  if (actions.some((action) => action.requested)) {
+    node.state = actions.every((action) => action.resolution === "expected-end")
+      ? "External.Success"
+      : "External.Requested";
+  } else if (b.target === "Waiting") {
+    node.state = "Waiting";
+  } else {
+    const open = dependsOnOf(state, node.id).some((id) => graphNodeById(id)?.state !== "Completed");
+    node.state = open ? "Pending" : "Available";
+  }
+  return json(res, 200, {
+    node: graphNodeRead(state, node),
+    attempt: null,
+    outcome: null,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: Date.now(),
+  });
+});
+
+const PAUSE_STATES = [
+  "Pending",
+  "Available",
+  "Executing",
+  "Waiting",
+  "Evaluating",
+  "External.Requested",
+  "External.Success",
+  "External.Failed",
+];
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/pause$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  const refusal = humanControlRefusal(res, state, node, b, PAUSE_STATES);
+  if (refusal !== null) return refusal;
+  const now = Date.now();
+  for (const execution of state.executions) {
+    if (execution.node_id === node.id && execution.claim_state === "running") {
+      execution.claim_state = "finished";
+      execution.ended_at = now;
+    }
+  }
+  node.state = "Paused";
+  return json(res, 200, {
+    node: graphNodeRead(state, node),
+    attempt: null,
+    outcome: null,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: now,
+  });
+});
+
+on("DELETE", /^\/api\/mission\/node\/([^/]+)\/dependency\/([^/]+)$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  if (isBlank(b.reason)) return blankReason(res);
+  const dependsOnId = decodeURIComponent(m[2]);
+  const removed = state.edges.filter(
+    (edge) => edge.dependent_id === node.id && edge.depends_on_id === dependsOnId,
+  );
+  state.edges = state.edges.filter((edge) => !removed.includes(edge));
+  if (removed.length > 0) state.mission.version += 1;
+  if (
+    node.state === "Pending" &&
+    dependsOnOf(state, node.id).every((id) => graphNodeById(id)?.state === "Completed")
+  )
+    node.state = "Available";
+  return json(res, 200, {
+    mission_version: state.mission.version,
+    revisions: [],
+    retired_node_ids: [],
+    added_edges: [],
+    removed_edges: removed,
+    open_attempts_unchanged: [],
+  });
+});
+
+const bindingConfigOf = (binding) => bindingSet.bindings[binding.name]?.config ?? {};
+
+const bindingRecordOf = (binding, projectId) => ({
+  ...binding,
+  project_id: projectId,
+  config: bindingConfigOf(binding),
+});
+
+const bindingRecordByName = (name) =>
+  Object.values(fx.GRAPH_BINDINGS).findLast((binding) => binding.name === name);
+
+const projectOrRefuse = (res, encodedId) => {
+  const project = projects.find((p) => p.id === decodeURIComponent(encodedId));
+  if (project === undefined) {
+    projectEnvelope(res, 404, "project.project.not_found", "The project identity does not exist.");
+  }
+  return project;
+};
+
+const BINDING_STATES = ["current", "removed", "all"];
+const BINDING_KINDS = ["repository", "worker", "storage"];
+
+on("GET", /^\/api\/project\/([^/]+)\/binding$/, (m, _b, res, _t, url) => {
+  const project = projectOrRefuse(res, m[1]);
+  if (project === undefined) return undefined;
+  const state = url.searchParams.get("state") ?? "current";
+  const kinds = url.searchParams.getAll("kind");
+  if (!BINDING_STATES.includes(state) || !kinds.every((kind) => BINDING_KINDS.includes(kind))) {
+    return refuseValidation(res);
+  }
+  const limit = Number(url.searchParams.get("limit") ?? 100);
+  const offset = Number(url.searchParams.get("cursor") ?? 0);
+  const latest = Object.values(fx.GRAPH_BINDINGS).filter(
+    (binding) => bindingRecordByName(binding.name) === binding,
+  );
+  const ordered = latest
+    .filter((binding) => kinds.length === 0 || kinds.includes(binding.kind))
+    .filter((binding) => state === "all" || (state === "current") === (binding.removed_at === null))
+    .sort((a, b) => (a.id < b.id ? 1 : -1));
+  const items = ordered.slice(offset, offset + limit).map((b) => bindingRecordOf(b, project.id));
+  const nextCursor = offset + limit < ordered.length ? String(offset + limit) : null;
+  return json(res, 200, { items, next_cursor: nextCursor });
+});
+
+on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)$/, (m, _b, res) => {
+  const binding = Object.values(fx.GRAPH_BINDINGS).find(
+    (item) => item.id === decodeURIComponent(m[2]),
+  );
+  if (binding === undefined) {
+    return projectEnvelope(res, 404, "project.binding.not_found", "No such binding.");
+  }
+  return json(res, 200, bindingRecordOf(binding, decodeURIComponent(m[1])));
+});
+
+const COOLING_UNTIL = Date.now() + 3 * 60 * 60_000;
+const COOLING_AGENTS = { [fx.PROJECT.id]: ["swe@1"] };
+
+const agentViewOf = (agent, binding, projectId) => {
+  const base = {
+    agent: agent.agent_name,
+    worker: bindingConfigOf(binding).worker,
+    worker_binding_id: binding.id,
+    binding_set_version: bindingSet.version,
+  };
+  const enablement = agent.enablement;
+  if (enablement === null || enablement.state !== "enabled") {
+    return {
+      ...base,
+      defaults: null,
+      entry: null,
+      effective: null,
+      chain: [],
+      active_position: null,
+      cooling: null,
+      valid: false,
+      issues: [{ path: [], code: "agent.enablement.unavailable" }],
+    };
+  }
+  const head = enablement.agent_providers.find(
+    (provider) => provider.name === enablement.default_configuration.agent_provider,
+  );
+  const cooling = COOLING_AGENTS[projectId]?.includes(agent.agent_name) ?? false;
+  const effective = {
+    agent_provider: head.name,
+    provider: head.provider,
+    credential: head.credential,
+    model_identifier: enablement.default_configuration.model_identifier,
+    reasoning_effort: enablement.default_configuration.reasoning_effort,
+  };
+  return {
+    ...base,
+    defaults: enablement.default_configuration,
+    entry: null,
+    effective,
+    chain: [
+      {
+        position: 0,
+        level: "enablement",
+        ...effective,
+        cooldown: cooling ? { strikes: 1, available_at: COOLING_UNTIL } : null,
+      },
+    ],
+    active_position: cooling ? null : 0,
+    cooling: cooling
+      ? { code: "agent.configuration.chain_cooling", available_at: COOLING_UNTIL }
+      : null,
+    valid: true,
+    issues: [],
+  };
+};
+
+on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/agent$/, (m, _b, res, _t, url) => {
+  const project = projectOrRefuse(res, m[1]);
+  if (project === undefined) return undefined;
+  const binding = Object.values(fx.GRAPH_BINDINGS).find(
+    (item) => item.id === decodeURIComponent(m[2]),
+  );
+  if (binding === undefined || binding.kind !== "worker") {
+    return projectEnvelope(res, 404, "project.binding.not_found", "Binding not found.");
+  }
+  const { worker } = bindingConfigOf(binding);
+  const items = agents
+    .filter((agent) => agent.worker_names.includes(worker))
+    .map((agent) => agentViewOf(agent, binding, project.id))
+    .sort((a, b) => a.agent.localeCompare(b.agent));
+  return json(res, 200, page(items, url));
+});
+
+const SSH_ADDRESS = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):([^/\s:]+)\/([^/\s:]+)\.git$/;
+
+const healthEntry = (status, capability, failureReason = "unclassified") => ({
+  status,
+  capability,
+  failure_reason: status === "healthy" ? null : failureReason,
+});
+
+const SSH_HOST_SETS = {
+  github: ["github.com", "ssh.github.com"],
+  gitlab: ["gitlab.com", "altssh.gitlab.com"],
+  bitbucket: ["bitbucket.org", "altssh.bitbucket.org"],
+};
+
+const platformHostOf = (config) => {
+  const host = SSH_ADDRESS.exec(config.address)?.[1]?.toLowerCase();
+  return host !== undefined && SSH_HOST_SETS[config.platform]?.includes(host) ? host : null;
+};
+
+const legacySshOf = (config) => {
+  const credential = credentials.find((item) => item.name === config.ssh_credential);
+  return credential !== undefined && isLegacySsh(credential);
+};
+
+const remoteFailureOf = (address) => {
+  if (address.includes("hostkey-")) return "host_key_unknown";
+  if (address.includes("denied-")) return "key_refused";
+  if (address.includes("bad-")) return "unclassified";
+  return null;
+};
+
+const PROMPT_KEYS = ["instruction_file", "repository", "agents"];
+
+const promptsShapeValid = (prompts) =>
+  typeof prompts === "object" &&
+  prompts !== null &&
+  Object.keys(prompts).every((key) => PROMPT_KEYS.includes(key)) &&
+  ["instruction_file", "repository"].every(
+    (key) => prompts[key] === undefined || typeof prompts[key] === "string",
+  ) &&
+  (prompts.agents === undefined ||
+    (typeof prompts.agents === "object" &&
+      prompts.agents !== null &&
+      Object.entries(prompts.agents).every(
+        ([agent, text]) => pr.PROMPT_AGENTS.includes(agent) && typeof text === "string",
+      )));
+
+const promptInvalid = (prompt, reason) => [
+  400,
+  "project.bindings.repository.prompt_invalid",
+  "The binding prompt is invalid.",
+  { prompt, reason },
+];
+
+const promptRefusalOf = (prompts, readHead) => {
+  if (!promptsShapeValid(prompts)) {
+    return [
+      400,
+      "gateway.request.validation_failed",
+      "The prompts field holds an unknown key, an unknown agent or a non-text value.",
+    ];
+  }
+  const texts = [
+    ["repository", prompts.repository],
+    ...Object.entries(prompts.agents ?? {}),
+  ].filter(([, text]) => text !== undefined);
+  for (const [prompt, text] of texts) {
+    const reason = pr.textReasonOf(text);
+    if (reason !== null) return promptInvalid(prompt, reason);
+  }
+  const path = prompts.instruction_file;
+  if (path === undefined) return null;
+  if (pr.pathInvalid(path)) return promptInvalid("instruction_file", "path_invalid");
+  const file = readHead ? pr.instructionFileAt(path) : null;
+  return file?.state === "invalid" ? promptInvalid("instruction_file", file.reason) : null;
+};
+
+const bindingPromptRefusalOf = (bindings) => {
+  for (const entry of Object.values(bindings)) {
+    const prompts = entry.kind === "repository" ? entry.config.prompts : undefined;
+    if (prompts === undefined) continue;
+    const refusal = promptRefusalOf(prompts, true);
+    if (refusal !== null) return refusal;
+  }
+  return null;
+};
+
+const instructionFileCheckOf = (prompts) => {
+  const path = prompts?.instruction_file;
+  if (path === undefined) {
+    return {
+      instruction_file: null,
+      instruction_file_hint:
+        pr.instructionFileAt("AGENTS.md").state === "present"
+          ? "AGENTS.md exists at the base head."
+          : null,
+    };
+  }
+  const file = pr.instructionFileAt(path);
+  return {
+    instruction_file: { path, commit: file.commit, state: file.state, reason: file.reason },
+    instruction_file_hint: null,
+  };
+};
+
+const repositoryRefusalOf = (config) => {
+  const host = platformHostOf(config);
+  if (host === null) {
+    return [
+      400,
+      "project.bindings.repository.address_invalid",
+      "Repository address must name an SSH host of its platform.",
+      null,
+    ];
+  }
+  if (!hostKeyPins.has(host)) {
+    return [
+      409,
+      "repository.host_key.unpinned",
+      "The SSH host holds no pinned host key.",
+      { host },
+    ];
+  }
+  if (legacySshOf(config)) {
+    return [
+      409,
+      "repository.credential.ssh_key_legacy",
+      "The SSH credential holds no generated key. Use Rotate SSH key.",
+      { credential: config.ssh_credential },
+    ];
+  }
+  return null;
+};
+
+const addressFailureOf = (config) => {
+  const host = platformHostOf(config);
+  if (host === null) return "address_invalid";
+  if (!hostKeyPins.has(host)) return "host_key_unknown";
+  if (legacySshOf(config)) return "identity_unavailable";
+  return remoteFailureOf(config.address);
+};
+
+const credentialHealth = (name) => {
+  const credential = credentials.find((item) => item.name === name);
+  if (credential === undefined || isArchived(credential)) {
+    return healthEntry("unhealthy", HEALTH_CAPABILITIES[credential?.platform ?? "github"]);
+  }
+  const legacy = isLegacySsh(credential);
+  const rejected = secretIsRejected(storedSecrets.get(credential.name)) || legacy;
+  return healthEntry(
+    rejected ? "unhealthy" : "healthy",
+    HEALTH_CAPABILITIES[credential.platform],
+    legacy ? "identity_unavailable" : "unauthorized",
+  );
+};
+
+const bindingHealthOf = (config) => ({
+  address: healthEntry(
+    addressFailureOf(config) === null ? "healthy" : "unhealthy",
+    "network git read",
+    addressFailureOf(config),
+  ),
+  ssh_credential: credentialHealth(config.ssh_credential),
+  credential: config.credential === undefined ? null : credentialHealth(config.credential),
+});
+
+on("POST", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/verify$/, (m, _b, res) => {
+  const project = projectOrRefuse(res, m[1]);
+  if (project === undefined) return undefined;
+  const binding = Object.values(fx.GRAPH_BINDINGS).find(
+    (item) => item.id === decodeURIComponent(m[2]),
+  );
+  if (binding === undefined || binding.kind !== "repository" || binding.removed_at !== null) {
+    return projectEnvelope(res, 404, "project.binding.not_found", "Binding not found.");
+  }
+  return json(res, 200, bindingHealthOf(bindingSet.bindings[binding.name].config));
+});
+
+on("POST", /^\/api\/project\/([^/]+)\/binding\/check$/, (m, b, res) => {
+  const project = projectOrRefuse(res, m[1]);
+  if (project === undefined) return undefined;
+  const config = b?.config;
+  const valid =
+    hasOnly(b, ["kind", "config"]) &&
+    b.kind === "repository" &&
+    typeof config === "object" &&
+    config !== null &&
+    isNonblank(config.address) &&
+    isNonblank(config.ssh_credential) &&
+    (config.credential === undefined || isNonblank(config.credential));
+  if (!valid) return refuseValidation(res);
+  const sshCredential = credentials.find(
+    (item) => item.name === config.ssh_credential && item.platform === "ssh" && !isArchived(item),
+  );
+  if (sshCredential === undefined) {
+    return credentialEnvelope(res, 404, "credential.credential.not_found", "Credential not found.");
+  }
+  const address = SSH_ADDRESS.exec(config.address);
+  if (address === null) {
+    return projectEnvelope(
+      res,
+      400,
+      "project.bindings.repository.address_invalid",
+      "Repository address must have the form git@<host>:<owner>/<repository>.git.",
+    );
+  }
+  const promptRefusal =
+    config.prompts === undefined ? null : promptRefusalOf(config.prompts, false);
+  if (promptRefusal !== null) return projectEnvelope(res, ...promptRefusal);
+  return json(res, 200, { ...bindingHealthOf(config), ...instructionFileCheckOf(config.prompts) });
+});
+
+const projectOrRefuseScheduler = (res, encodedId) => {
+  const state = stateOfProject(decodeURIComponent(encodedId));
+  if (state === undefined) {
+    projectEnvelope(res, 404, "project.project.not_found", "The project identity does not exist.");
+  }
+  return state;
+};
+
+on("GET", /^\/api\/scheduler\/project\/([^/]+)\/queue$/, (m, _b, res, _t, url) => {
+  const state = stateOfProject(decodeURIComponent(m[1]));
+  if (state === undefined) return json(res, 200, page([], url));
+  const ordered = [...state.queue].sort(
+    (a, x) => x.priority - a.priority || a.job_id.localeCompare(x.job_id),
+  );
+  return json(res, 200, page(ordered, url));
+});
+
+on("GET", /^\/api\/scheduler\/project\/([^/]+)\/execution$/, (m, _b, res, _t, url) => {
+  const state = projectOrRefuseScheduler(res, m[1]);
+  if (state === undefined) return undefined;
+  const nodeId = url.searchParams.get("node_id");
+  const attempt = url.searchParams.get("attempt");
+  if (attempt !== null && !(Number.isInteger(Number(attempt)) && Number(attempt) > 0)) {
+    return refuseValidation(res);
+  }
+  const items = state.executions
+    .filter(
+      (item) =>
+        (nodeId === null || item.node_id === nodeId) &&
+        (attempt === null || String(item.attempt) === attempt),
+    )
+    .sort((a, b) => b.execution_id.localeCompare(a.execution_id));
+  return json(res, 200, page(items, url));
+});
+
+const platformEntry = (platform, secretShape, loginModes, metadataFields, verifiable) => ({
+  platform,
+  secret_shape: secretShape,
+  login_modes: loginModes,
+  metadata_fields: metadataFields,
+  verifiable,
+});
+const CREDENTIAL_PLATFORM_LISTS = {
+  llm: {
+    items: [
+      platformEntry("github-copilot", "oauth", ["device"], [], true),
+      platformEntry("openai-codex", "oauth", ["browser", "device"], [], true),
+      platformEntry("anthropic-subscription", "oauth", ["copy_code"], [], true),
+      platformEntry("anthropic", "api_key", [], [], true),
+      platformEntry("openai-compatible", "api_key", [], ["base_url"], true),
+      platformEntry("openrouter", "api_key", [], [], true),
+      platformEntry("openai", "api_key", [], [], true),
+      platformEntry("amazon-bedrock", "api_key", [], ["region"], false),
+      platformEntry("google-vertex", "api_key", [], ["project", "location"], false),
+      platformEntry("cloudflare-ai-gateway", "api_key", [], ["account_id", "gateway_id"], false),
+      platformEntry("google", "api_key", [], [], false),
+      platformEntry("mistral", "api_key", [], [], false),
+    ],
+  },
+  repository: {
+    items: [
+      platformEntry("github", "api_key", [], [], true),
+      platformEntry("ssh", "ssh_key", [], [], true),
+    ],
+  },
+  storage: {
+    items: [platformEntry("s3", "s3_access_key", [], ["endpoint", "bucket", "region"], true)],
+  },
+};
+const CREDENTIAL_PLATFORMS = Object.fromEntries(
+  Object.values(CREDENTIAL_PLATFORM_LISTS).flatMap((list) =>
+    list.items.map((entry) => [entry.platform, entry]),
+  ),
+);
+const CREDENTIAL_COMPONENT = "(llm|repository|storage)";
+const credentialRoute = (suffix) =>
+  new RegExp(`^\\/api\\/${CREDENTIAL_COMPONENT}\\/credential${suffix}$`);
+const componentEntry = (component, platform) =>
+  CREDENTIAL_PLATFORM_LISTS[component].items.find((entry) => entry.platform === platform);
+const HEALTH_CAPABILITIES = {
+  github: "rate-limit read",
+  "github-copilot": "copilot-token read",
+  "openai-codex": "model-list read",
+  "anthropic-subscription": "model call",
+  anthropic: "model-list read",
+  openrouter: "model-list read",
+  "openai-compatible": "model-list read",
+  s3: "bucket head",
+  ssh: "ssh identity",
+};
+const secretIsRejected = (secret) =>
+  typeof secret === "object" &&
+  secret !== null &&
+  Object.values(secret).some((value) => typeof value === "string" && value.startsWith("bad-"));
+const CREDENTIAL_NAME = /^[a-z][a-z0-9-]{0,62}$/;
+const BASE_URL = /^https?:\/\/[^?#]+[^?#/]$/;
+const LOGIN_EXPIRY_MS = 15 * 60 * 1000;
+const LOGIN_DEVICE_COMPLETION_MS = 10000;
+const HEALTHCHECK_DELAY_MS = 1500;
+const SERVER_HOLDER = "server";
+const credentials = EMPTY
+  ? []
+  : [
+      ...structuredClone(fx.CREDENTIALS).map((credential) => ({
+        name: credential.name,
+        platform: credential.platform,
+        holder: SERVER_HOLDER,
+        sealed_to: null,
+        sealed_current: true,
+        revisions: credential.revisions,
+      })),
+      ...structuredClone(fx.INSTANCE_CREDENTIAL_COPIES),
+    ];
+const pinnedRevisions = new Set(fx.PINNED_CREDENTIAL_REVISIONS);
+const loginSessions = new Map();
+const storedSecrets = new Map(
+  credentials
+    .filter((credential) => credential.name.startsWith("bad-"))
+    .map((credential) => [credential.name, { key: "bad-seed" }]),
+);
+let credentialSequence = 100;
+
+const credentialEnvelope = (res, status, code, message, details = null) =>
+  json(res, status, {
+    error: { code, message, details },
+    request_id: "request_01J00000000000000000000000",
+  });
+
+const nextCredentialId = () => {
+  credentialSequence += 1;
+  return `credential_01J9ZQ4XKM3B6V8N2R5T7W${String(credentialSequence).padStart(4, "0")}`;
+};
+
+const newestLive = (credential) =>
+  credential.revisions.filter((revision) => revision.ended_at === null)[0] ?? null;
+
+const isLegacySsh = (credential) =>
+  credential.platform === "ssh" && typeof newestLive(credential)?.metadata?.public_key !== "string";
+
+const drainOlder = (credential, now) => {
+  const newest = newestLive(credential);
+  for (const revision of credential.revisions) {
+    if (revision === newest || revision.ended_at !== null) continue;
+    if (!pinnedRevisions.has(revision.id)) revision.ended_at = now;
+  }
+};
+
+const isNonblank = (value) => typeof value === "string" && value.trim().length > 0;
+
+const secretIsValid = (shape, secret) => {
+  if (typeof secret !== "object" || secret === null) return false;
+  if (shape === "api_key") return isNonblank(secret.key);
+  if (shape === "s3_access_key") {
+    return isNonblank(secret.access_key_id) && isNonblank(secret.secret_access_key);
+  }
+  return (
+    isNonblank(secret.refresh) && isNonblank(secret.access) && Number.isInteger(secret.expires)
+  );
+};
+
+const metadataIsValid = (platform, metadata) => {
+  if (platform === "openai-compatible") {
+    return (
+      typeof metadata === "object" &&
+      metadata !== null &&
+      typeof metadata.base_url === "string" &&
+      BASE_URL.test(metadata.base_url) &&
+      Array.isArray(metadata.models) &&
+      metadata.models.every((model) => isNonblank(model?.id)) &&
+      new Set(metadata.models.map((model) => model.id.trim())).size === metadata.models.length
+    );
+  }
+  const fields = CREDENTIAL_PLATFORMS[platform]?.metadata_fields ?? [];
+  if (fields.length === 0) return metadata === null;
+  return (
+    typeof metadata === "object" &&
+    metadata !== null &&
+    Object.keys(metadata).length === fields.length &&
+    fields.every((field) => isNonblank(metadata[field])) &&
+    (platform !== "s3" || URL.canParse(metadata.endpoint))
+  );
+};
+
+const liveHolder = (name) => {
+  const instance = instanceRoutes.liveInstance(name);
+  if (instance !== null) return instance.record.placement === "worker" ? instance.record : null;
+  return machineRoutes.liveMachine(name);
+};
+
+const hasConnectedRunner = (name) => {
+  const instance = instanceRoutes.liveInstance(name);
+  const runners =
+    instance === null
+      ? instanceRoutes.instancesOf(name).filter((item) => item.record.ended_at === null)
+      : [instance];
+  return runners.some((item) => item.connection !== null);
+};
+
+const holderOf = (url) => url?.searchParams.get("holder") ?? SERVER_HOLDER;
+
+const findCredential = (res, component, encoded, holder = SERVER_HOLDER) => {
+  const credential = credentials.find(
+    (item) =>
+      item.name === decodeURIComponent(encoded) &&
+      item.holder === holder &&
+      componentEntry(component, item.platform) !== undefined,
+  );
+  if (credential === undefined) {
+    credentialEnvelope(res, 404, "credential.credential.not_found", "Credential not found.");
+  }
+  return credential;
+};
+
+const isArchived = (credential) =>
+  credential.revisions.every((revision) => revision.ended_at !== null);
+
+const refuseArchived = (res, credential) => {
+  if (!isArchived(credential)) return false;
+  credentialEnvelope(
+    res,
+    409,
+    "credential.credential.archived",
+    "The credential is archived; an archive is final.",
+  );
+  return true;
+};
+
+const refuseStaleRevision = (res, credential, expectedRevision) => {
+  if (newestLive(credential)?.revision === expectedRevision) return false;
+  credentialEnvelope(
+    res,
+    409,
+    "credential.revision.conflict",
+    "The expected revision is not the newest live revision.",
+  );
+  return true;
+};
+
+const refuseInvalidInput = (res) =>
+  credentialEnvelope(res, 400, "credential.input.invalid", "Credential input is invalid.");
+
+const addRevision = (credential, metadata, res) => {
+  const now = Date.now();
+  credential.revisions.unshift({
+    id: nextCredentialId(),
+    revision: credential.revisions[0].revision + 1,
+    metadata,
+    created_at: now,
+    ended_at: null,
+  });
+  drainOlder(credential, now);
+  return json(res, 200, credential);
+};
+
+const bindingsNaming = (component, credential) =>
+  Object.entries(bindingSet.bindings)
+    .filter(([, binding]) => binding.kind === component)
+    .filter(
+      ([, binding]) =>
+        binding.config.credential === credential.name ||
+        binding.config.ssh_credential === credential.name,
+    )
+    .map(([name]) => ({
+      project_id: projects[0].id,
+      project_name: projects[0].name,
+      binding_id:
+        Object.values(fx.GRAPH_BINDINGS).findLast((binding) => binding.name === name)?.id ?? name,
+      name,
+    }));
+
+const dependentsOf = (component, credential) =>
+  component === "llm"
+    ? { agent_providers: [] }
+    : { bindings: bindingsNaming(component, credential) };
+
+const refuseSshEntry = (res) =>
+  credentialEnvelope(
+    res,
+    400,
+    "credential.entry.unsupported",
+    "An ssh credential enters only through Create SSH key.",
+  );
+
+const sshBlobOf = (rawKey) => {
+  const type = Buffer.from("ssh-ed25519");
+  const length = (value) => {
+    const buffer = Buffer.alloc(4);
+    buffer.writeUInt32BE(value);
+    return buffer;
+  };
+  return Buffer.concat([length(type.length), type, length(rawKey.length), rawKey]);
+};
+
+const fingerprintOf = (blob) =>
+  `SHA256:${createHash("sha256").update(blob).digest("base64").replace(/=+$/, "")}`;
+
+const generatedSshKey = (name) => {
+  const { publicKey } = generateKeyPairSync("ed25519");
+  const blob = sshBlobOf(publicKey.export({ format: "der", type: "spki" }).subarray(-32));
+  return {
+    public_key: `ssh-ed25519 ${blob.toString("base64")} kanthord-${name}`,
+    fingerprint: fingerprintOf(blob),
+  };
+};
+
+const hostKeyScanOf = (host) => {
+  const publicKey = fx.HOST_KEYS[host];
+  return {
+    host,
+    public_key: publicKey,
+    fingerprint: fingerprintOf(Buffer.from(publicKey.split(" ")[1], "base64")),
+    source: host === "github.com" || host === "ssh.github.com" ? "github_meta" : "keyscan",
+  };
+};
+
+const hostKeyPins = new Map(EMPTY ? [] : fx.HOST_KEY_PINS.map((pin) => [pin.host, pin.created_at]));
+
+const refuseUnsupportedHost = (res, host) => {
+  if (typeof host === "string" && Object.hasOwn(fx.HOST_KEYS, host)) return false;
+  credentialEnvelope(
+    res,
+    400,
+    "repository.host_key.host_unsupported",
+    "The host is in no SSH host set.",
+  );
+  return true;
+};
+
+on("POST", /^\/api\/repository\/credential\/ssh\/key$/, (_m, b, res) => {
+  if (
+    typeof b?.name !== "string" ||
+    !CREDENTIAL_NAME.test(b.name) ||
+    ["login", "check", "platform", "ssh"].includes(b.name)
+  ) {
+    return refuseInvalidInput(res);
+  }
+  const holder = credentials.find((item) => item.name === b.name);
+  if (holder !== undefined) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.name.conflict",
+      "Credential name already exists.",
+      {
+        id: holder.revisions[0].id,
+      },
+    );
+  }
+  const credential = {
+    name: b.name,
+    platform: "ssh",
+    holder: SERVER_HOLDER,
+    sealed_to: null,
+    sealed_current: true,
+    revisions: [
+      {
+        id: nextCredentialId(),
+        revision: 1,
+        metadata: generatedSshKey(b.name),
+        created_at: Date.now(),
+        ended_at: null,
+      },
+    ],
+  };
+  credentials.push(credential);
+  return json(res, 200, credential);
+});
+
+on("POST", /^\/api\/repository\/credential\/([^/]+)\/ssh\/key$/, (m, b, res) => {
+  const credential = findCredential(res, "repository", m[1]);
+  if (credential === undefined) return undefined;
+  if (credential.platform !== "ssh") return refuseSshEntry(res);
+  if (refuseArchived(res, credential)) return undefined;
+  if (refuseStaleRevision(res, credential, b?.expected_revision)) return undefined;
+  return addRevision(credential, generatedSshKey(credential.name), res);
+});
+
+on("GET", /^\/api\/repository\/host-key$/, (_m, _b, res, _t, url) => {
+  const items = [...hostKeyPins.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([host, createdAt]) => ({ ...hostKeyScanOf(host), created_at: createdAt }));
+  return json(res, 200, page(items, url));
+});
+
+on("POST", /^\/api\/repository\/host-key\/scan$/, (_m, b, res) => {
+  if (refuseUnsupportedHost(res, b?.host)) return undefined;
+  return json(res, 200, hostKeyScanOf(b.host));
+});
+
+on("PUT", /^\/api\/repository\/host-key\/([^/]+)$/, (m, b, res) => {
+  const host = decodeURIComponent(m[1]);
+  if (refuseUnsupportedHost(res, host)) return undefined;
+  const scan = hostKeyScanOf(host);
+  if (b?.fingerprint !== scan.fingerprint) {
+    return credentialEnvelope(
+      res,
+      409,
+      "repository.host_key.changed",
+      "The host presented another key on the second read.",
+      { host, fingerprint: scan.fingerprint },
+    );
+  }
+  const createdAt = Date.now();
+  hostKeyPins.set(host, createdAt);
+  return json(res, 200, { ...scan, created_at: createdAt });
+});
+
+on("GET", credentialRoute("\\/platform"), (m, _b, res) =>
+  json(res, 200, CREDENTIAL_PLATFORM_LISTS[m[1]]),
+);
+
+on("GET", credentialRoute(""), (m, _b, res, _t, url) => {
+  const platform = url.searchParams.get("platform");
+  const holder = url.searchParams.get("holder");
+  const includeArchived = url.searchParams.get("include_archived") === "true";
+  const limit = Number(url.searchParams.get("limit") ?? 100);
+  const offset = Number(url.searchParams.get("cursor") ?? 0);
+  const ordered = credentials
+    .filter((credential) => componentEntry(m[1], credential.platform) !== undefined)
+    .filter((credential) => holder === null || credential.holder === holder)
+    .filter((credential) => platform === null || credential.platform === platform)
+    .filter((credential) => includeArchived || !isArchived(credential))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  for (const credential of ordered) drainOlder(credential, Date.now());
+  const items = ordered.slice(offset, offset + limit);
+  const nextCursor = offset + limit < ordered.length ? String(offset + limit) : null;
+  return json(res, 200, { items, next_cursor: nextCursor });
+});
+
+on("POST", credentialRoute("\\/check"), (m, b, res) => {
+  const entry = componentEntry(m[1], b?.platform);
+  if (entry === undefined) {
+    return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
+  }
+  if (!entry.verifiable || entry.secret_shape === "oauth" || entry.secret_shape === "ssh_key") {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.check.unsupported",
+      "The platform has no check before the save.",
+    );
+  }
+  if (!secretIsValid(entry.secret_shape, b.secret)) return refuseInvalidInput(res);
+  if (!metadataIsValid(b.platform, b.metadata)) return refuseInvalidInput(res);
+  return json(
+    res,
+    200,
+    healthEntry(
+      secretIsRejected(b.secret) ? "unhealthy" : "healthy",
+      HEALTH_CAPABILITIES[b.platform],
+      "unauthorized",
+    ),
+  );
+});
+
+on("POST", credentialRoute("\\/([^/]+)\\/verify"), (m, _b, res) => {
+  const credential = findCredential(res, m[1], m[2]);
+  if (credential === undefined) return undefined;
+  if (refuseArchived(res, credential)) return undefined;
+  const entry = CREDENTIAL_PLATFORMS[credential.platform];
+  if (!entry.verifiable || entry.secret_shape === "oauth") {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.check.unsupported",
+      "The platform has no check.",
+    );
+  }
+  setTimeout(
+    () =>
+      json(
+        res,
+        200,
+        healthEntry(
+          secretIsRejected(storedSecrets.get(credential.name)) || isLegacySsh(credential)
+            ? "unhealthy"
+            : "healthy",
+          HEALTH_CAPABILITIES[credential.platform],
+          isLegacySsh(credential) ? "identity_unavailable" : "unauthorized",
+        ),
+      ),
+    HEALTHCHECK_DELAY_MS,
+  );
+});
+
+on("POST", credentialRoute(""), (m, b, res) => {
+  const shape = componentEntry(m[1], b?.platform)?.secret_shape;
+  if (shape === undefined) {
+    return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
+  }
+  if (shape === "oauth") {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.entry.unsupported",
+      "Unsupported credential entry.",
+    );
+  }
+  if (shape === "ssh_key") return refuseSshEntry(res);
+  if (
+    typeof b.name !== "string" ||
+    !CREDENTIAL_NAME.test(b.name) ||
+    b.name === "login" ||
+    b.name === "check"
+  ) {
+    return refuseInvalidInput(res);
+  }
+  const holders = Array.isArray(b.holders) ? b.holders : [SERVER_HOLDER];
+  if (holders.length === 0 || new Set(holders).size !== holders.length) {
+    return refuseInvalidInput(res);
+  }
+  if (m[1] !== "llm" && holders.some((holder) => holder !== SERVER_HOLDER)) {
+    return credentialEnvelope(res, 400, "credential.sealed.invalid", "Only an LLM copy is sealed.");
+  }
+  const unknownHolder = holders.find(
+    (holder) => holder !== SERVER_HOLDER && liveHolder(holder) === null,
+  );
+  if (unknownHolder !== undefined) {
+    return credentialEnvelope(
+      res,
+      400,
+      "llm.credential.holder_unknown",
+      "The holder names no live machine and no live worker instance.",
+      { holder: unknownHolder },
+    );
+  }
+  const otherPlatform = credentials.find(
+    (item) => item.name === b.name && item.platform !== b.platform,
+  );
+  if (otherPlatform !== undefined) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.name.platform_conflict",
+      "The credential name holds another platform.",
+      { platform: otherPlatform.platform },
+    );
+  }
+  const taken = credentials.find((item) => item.name === b.name && holders.includes(item.holder));
+  if (taken !== undefined) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.name.conflict",
+      "Credential name already exists.",
+      {
+        id: taken.revisions[0].id,
+      },
+    );
+  }
+  if (!secretIsValid(shape, b.secret)) return refuseInvalidInput(res);
+  if (!metadataIsValid(b.platform, b.metadata)) return refuseInvalidInput(res);
+  const copies = holders.map((holder) => {
+    const record = holder === SERVER_HOLDER ? null : liveHolder(holder);
+    return {
+      name: b.name,
+      platform: b.platform,
+      holder,
+      sealed_to: record === null ? null : record.fingerprint,
+      sealed_current: true,
+      revisions: [
+        {
+          id: nextCredentialId(),
+          revision: 1,
+          metadata: b.metadata,
+          created_at: Date.now(),
+          ended_at: null,
+        },
+      ],
+    };
+  });
+  credentials.push(...copies);
+  storedSecrets.set(b.name, b.secret);
+  return json(res, 200, copies[0]);
+});
+
+on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
+  const shape = componentEntry("llm", b?.platform)?.secret_shape;
+  if (shape === undefined) {
+    return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
+  }
+  if (shape !== "oauth") {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.entry.unsupported",
+      "Unsupported credential entry.",
+    );
+  }
+  if (typeof b.name !== "string" || !CREDENTIAL_NAME.test(b.name) || b.name === "login") {
+    return refuseInvalidInput(res);
+  }
+  if (
+    b.mode !== undefined &&
+    b.mode !== "browser" &&
+    b.mode !== "device" &&
+    b.mode !== "copy_code"
+  ) {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.login.mode_unsupported",
+      "Unsupported login mode.",
+    );
+  }
+  const holder = b.holder ?? SERVER_HOLDER;
+  const record = holder === SERVER_HOLDER ? null : liveHolder(holder);
+  if (holder !== SERVER_HOLDER && record === null) {
+    return credentialEnvelope(
+      res,
+      400,
+      "llm.credential.holder_unknown",
+      "The holder names no live machine and no live worker instance.",
+      { holder },
+    );
+  }
+  if (record !== null && b.mode === "browser") {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.login.mode_unsupported",
+      "A machine or a worker instance signs in in copy_code or device mode only.",
+    );
+  }
+  if (record !== null && !hasConnectedRunner(holder)) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.login.instance_unavailable",
+      "No connected instance can run the sign-in.",
+      { holder },
+    );
+  }
+  const taken = credentials.find((item) => item.name === b.name && item.holder === holder);
+  if (taken !== undefined && record !== null && refuseArchived(res, taken)) return undefined;
+  if (taken !== undefined && (record === null || taken.sealed_current)) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.name.conflict",
+      "Credential name already exists.",
+      {
+        id: taken.revisions[0].id,
+      },
+    );
+  }
+  const now = Date.now();
+  const pending = [...loginSessions.values()].some(
+    (session) =>
+      session.platform === b.platform && session.state === "pending" && session.expires_at > now,
+  );
+  if (pending) {
+    return credentialEnvelope(res, 409, "credential.login.pending", "Another login is pending.");
+  }
+  const sessionId = `login_session_01J9ZQ4XKM3B6V8N2R5T7W${String(now % 10000).padStart(4, "0")}`;
+  const copyCode = b.platform === "anthropic-subscription";
+  const device = !copyCode && (b.platform === "github-copilot" || b.mode === "device");
+  const session = {
+    session_id: sessionId,
+    platform: b.platform,
+    name: b.name,
+    holder,
+    sealedTo: record === null ? null : record.fingerprint,
+    state: "pending",
+    startedAt: now,
+    expires_at: now + LOGIN_EXPIRY_MS,
+    device,
+    codeReceived: false,
+  };
+  loginSessions.set(sessionId, session);
+  return json(res, 200, {
+    session_id: sessionId,
+    address: copyCode
+      ? "https://claude.ai/oauth/authorize?code=true&client_id=mock"
+      : device
+        ? "https://github.com/login/device"
+        : "https://auth.example.test/authorize",
+    code: device ? "MOCK-1234" : null,
+    expires_at: session.expires_at,
+  });
+});
+
+const settleLogin = (session) => {
+  const now = Date.now();
+  if (session.state !== "pending") return;
+  if (now >= session.expires_at) {
+    session.state = "expired";
+    return;
+  }
+  const done =
+    session.codeReceived ||
+    (session.device && now - session.startedAt >= LOGIN_DEVICE_COMPLETION_MS);
+  if (!done) return;
+  const stale = credentials.find(
+    (item) => item.name === session.name && item.holder === session.holder,
+  );
+  const keyChanged =
+    session.holder !== SERVER_HOLDER &&
+    liveHolder(session.holder)?.fingerprint !== session.sealedTo;
+  const refusal = keyChanged
+    ? "credential.sealed.invalid"
+    : stale === undefined
+      ? null
+      : isArchived(stale)
+        ? "credential.credential.archived"
+        : stale.sealed_current
+          ? "credential.name.conflict"
+          : null;
+  if (refusal !== null) {
+    session.state = "failed";
+    session.failureReason = refusal;
+    return;
+  }
+  session.state = "completed";
+  if (stale !== undefined) {
+    stale.sealed_to = session.sealedTo;
+    stale.sealed_current = true;
+    stale.revisions.unshift({
+      id: nextCredentialId(),
+      revision: stale.revisions[0].revision + 1,
+      metadata: newestLive(stale)?.metadata ?? null,
+      created_at: now,
+      ended_at: null,
+    });
+    drainOlder(stale, now);
+    return;
+  }
+  credentials.push({
+    name: session.name,
+    platform: session.platform,
+    holder: session.holder,
+    sealed_to: session.sealedTo,
+    sealed_current: true,
+    revisions: [
+      { id: nextCredentialId(), revision: 1, metadata: null, created_at: now, ended_at: null },
+    ],
+  });
+};
+
+on("POST", /^\/api\/llm\/credential\/login\/([^/]+)\/code$/, (m, b, res) => {
+  const session = loginSessions.get(decodeURIComponent(m[1]));
+  if (session === undefined) {
+    return credentialEnvelope(res, 404, "credential.login.not_found", "Login session not found.");
+  }
+  settleLogin(session);
+  if (session.state !== "pending") {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.login.value_not_awaited",
+      "No login value is awaited.",
+    );
+  }
+  if (!isNonblank(b?.value)) return refuseInvalidInput(res);
+  session.codeReceived = true;
+  return json(res, 200, { session_id: session.session_id });
+});
+
+on("GET", /^\/api\/llm\/credential\/login\/([^/]+)$/, (m, _b, res) => {
+  const session = loginSessions.get(decodeURIComponent(m[1]));
+  if (session === undefined) {
+    return credentialEnvelope(res, 404, "credential.login.not_found", "Login session not found.");
+  }
+  settleLogin(session);
+  return json(res, 200, {
+    session_id: session.session_id,
+    state: session.state,
+    last_message: session.state === "pending" ? "Waiting for the platform interaction." : null,
+    failure_reason: session.failureReason ?? null,
+  });
+});
+
+on("GET", credentialRoute("\\/([^/]+)"), (m, _b, res, _t, url) => {
+  const credential = findCredential(res, m[1], m[2], holderOf(url));
+  if (credential === undefined) return undefined;
+  drainOlder(credential, Date.now());
+  return json(res, 200, { ...credential, ...dependentsOf(m[1], credential) });
+});
+
+on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res, _t, url) => {
+  const credential = findCredential(res, m[1], m[2], holderOf(url));
+  if (credential === undefined) return undefined;
+  if (refuseArchived(res, credential)) return undefined;
+  if (refuseStaleRevision(res, credential, b?.expected_revision)) return undefined;
+  if (credential.platform === "ssh") return refuseSshEntry(res);
+  if (!secretIsValid(CREDENTIAL_PLATFORMS[credential.platform].secret_shape, b.secret)) {
+    return refuseInvalidInput(res);
+  }
+  const metadata = b.metadata === undefined ? newestLive(credential).metadata : b.metadata;
+  if (!metadataIsValid(credential.platform, metadata)) return refuseInvalidInput(res);
+  storedSecrets.set(credential.name, b.secret);
+  if (credential.holder !== SERVER_HOLDER) {
+    credential.sealed_to = liveHolder(credential.holder)?.fingerprint ?? null;
+    credential.sealed_current = credential.sealed_to !== null;
+  }
+  return addRevision(credential, metadata, res);
+});
+
+on("PUT", credentialRoute("\\/([^/]+)\\/metadata"), (m, b, res, _t, url) => {
+  const credential = findCredential(res, m[1], m[2], holderOf(url));
+  if (credential === undefined) return undefined;
+  if (refuseArchived(res, credential)) return undefined;
+  if (refuseStaleRevision(res, credential, b?.expected_revision)) return undefined;
+  if (credential.platform === "ssh") return refuseSshEntry(res);
+  if (!metadataIsValid(credential.platform, b.metadata)) return refuseInvalidInput(res);
+  const current = newestLive(credential).metadata;
+  if (credential.platform === "openai-compatible" && current.base_url !== b.metadata.base_url) {
+    return credentialEnvelope(
+      res,
+      409,
+      "llm.metadata.base_url_fixed",
+      "Credential base URL cannot be changed by metadata update.",
+    );
+  }
+  return addRevision(credential, b.metadata, res);
+});
+
+on("POST", credentialRoute("\\/([^/]+)\\/revision\\/(\\d+)\\/revoke"), (m, _b, res) => {
+  const credential = findCredential(res, m[1], m[2]);
+  if (credential === undefined) return undefined;
+  const target = credential.revisions.find((revision) => revision.revision === Number(m[3]));
+  if (target === undefined) {
+    return credentialEnvelope(res, 404, "credential.revision.not_found", "Revision not found.");
+  }
+  if (target.ended_at !== null) {
+    return credentialEnvelope(res, 409, "credential.revision.ended", "Revision already ended.");
+  }
+  if (target === newestLive(credential)) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.revision.newest_live",
+      "The newest live revision cannot be revoked.",
+    );
+  }
+  const now = Date.now();
+  target.ended_at = now;
+  pinnedRevisions.delete(target.id);
+  drainOlder(credential, now);
+  return json(res, 200, credential);
+});
+
+on("POST", credentialRoute("\\/([^/]+)\\/archive"), (m, _b, res) => {
+  const credential = findCredential(res, m[1], m[2]);
+  if (credential === undefined) return undefined;
+  if (refuseArchived(res, credential)) return undefined;
+  const dependents = fx.CREDENTIAL_DEPENDENTS[credential.name];
+  if (dependents !== undefined) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.credential.in_use",
+      "A dependent uses the credential.",
+      dependents,
+    );
+  }
+  const now = Date.now();
+  for (const revision of credential.revisions) {
+    if (revision.ended_at === null) revision.ended_at = now;
+    pinnedRevisions.delete(revision.id);
+  }
+  return json(res, 200, credential);
+});
+
+let instanceRoutes;
+
+const machineRoutes = registerMachines({
+  on,
+  json,
+  envelope: projectEnvelope,
+  page,
+  credentials,
+  copiesOf: (holder) => instanceRoutes.copiesOf(holder),
+  instancesOf: (machine) => instanceRoutes.instancesOf(machine),
+  instanceNames: () => instanceRoutes.instanceNames(),
+});
+
+instanceRoutes = registerInstances({
+  on,
+  json,
+  envelope: projectEnvelope,
+  page,
+  bindingSets,
+  credentials,
+  agents,
+  containerBlockReason: () =>
+    STABLE_PLACEMENT_REASONS.includes(containerReason) ? containerReason : null,
+  liveMachine: machineRoutes.liveMachine,
+  machineNames: machineRoutes.machineNames,
+});
+
+registerWorkbench({
+  on,
+  json,
+  envelope: projectEnvelope,
+  agents,
+  sessions: workbenchSessions,
+  variants: agentVariants,
+  projects,
+  origin: ORIGIN,
+});
+
+registerTracking({
+  on,
+  json,
+  envelope: projectEnvelope,
+  page,
+  executions: () => [...projectStates.values()].flatMap((state) => state.executions),
+  username: USERNAME,
+});
+
+const environments = registerEnvironments({
+  on,
+  json,
+  envelope: projectEnvelope,
+  projectOrRefuse,
+  bindingSetOf,
+  storedBindingsOf,
+  bindingIdOf: (name) => bindingRecordByName(name)?.id ?? name,
+});
+
+registerFootprint({
+  on,
+  json,
+  envelope: projectEnvelope,
+  page,
+  username: USERNAME,
+  instancePlacement: (name) => instanceRoutes.liveInstance(name)?.record.placement ?? null,
+});
+
+export { DEV_TOKEN, GUEST_PATH, ORIGIN, PORT, projectEnvelope, PUBLIC, routes, USERNAME, json };

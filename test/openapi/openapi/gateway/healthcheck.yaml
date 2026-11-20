@@ -1,0 +1,206 @@
+# Generated from the operation registry by kanthord gateway openapi.
+pathItem:
+  get:
+    operationId: gateway.healthcheck
+    tags:
+      - gateway
+    description: Check resource health on demand, grouped by owner and scope.
+      Returns every inventory entry with status and capability, including
+      unknown for unfinished checks. A missing inventory returns 503 with
+      missing_inventories in error.details.
+    x-access-policy: human
+    x-timeout-ms: 120000
+    x-mutation: false
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters: []
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/gateway.healthcheck.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+components:
+  schemas:
+    gateway.healthcheck.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties: {}
+          additionalProperties: false
+        query:
+          type: object
+          properties: {}
+          additionalProperties: false
+        body:
+          type: "null"
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    gateway.healthcheck.Output:
+      type: object
+      properties:
+        services:
+          type: object
+          properties:
+            project:
+              $ref: "#/components/schemas/gateway.healthcheck.Output/$defs/ResourceHealthOwne\
+                r"
+            intake:
+              $ref: "#/components/schemas/gateway.healthcheck.Output/$defs/ResourceHealthOwne\
+                r"
+            worker:
+              $ref: "#/components/schemas/gateway.healthcheck.Output/$defs/ResourceHealthOwne\
+                r"
+          required:
+            - project
+            - intake
+            - worker
+          additionalProperties: false
+        shared:
+          type: object
+          properties:
+            llm:
+              $ref: "#/components/schemas/gateway.healthcheck.Output/$defs/ResourceHealthOwne\
+                r"
+            repository:
+              $ref: "#/components/schemas/gateway.healthcheck.Output/$defs/ResourceHealthOwne\
+                r"
+            storage:
+              $ref: "#/components/schemas/gateway.healthcheck.Output/$defs/ResourceHealthOwne\
+                r"
+            agent:
+              $ref: "#/components/schemas/gateway.healthcheck.Output/$defs/ResourceHealthOwne\
+                r"
+          required:
+            - llm
+            - repository
+            - storage
+            - agent
+          additionalProperties: false
+      required:
+        - services
+        - shared
+      additionalProperties: false
+      $defs:
+        ResourceHealthOwner:
+          type: object
+          properties:
+            global:
+              type: object
+              propertyNames:
+                type: string
+                minLength: 1
+              additionalProperties:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - healthy
+                      - unhealthy
+                      - unknown
+                  capability:
+                    type: string
+                    minLength: 1
+                  failure_reason:
+                    anyOf:
+                      - type: string
+                        enum:
+                          - host_key_unknown
+                          - key_refused
+                          - repository_not_found
+                          - host_unreachable
+                          - address_invalid
+                          - unauthorized
+                          - forbidden
+                          - rate_limited
+                          - unreachable
+                          - invalid_response
+                          - host_key_changed
+                          - identity_unavailable
+                          - held_by_instance
+                          - deadline_exceeded
+                          - unclassified
+                      - type: "null"
+                required:
+                  - status
+                  - capability
+                  - failure_reason
+                additionalProperties: false
+            projects:
+              type: object
+              propertyNames:
+                type: string
+                minLength: 1
+              additionalProperties:
+                type: object
+                propertyNames:
+                  type: string
+                  minLength: 1
+                additionalProperties:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      enum:
+                        - healthy
+                        - unhealthy
+                        - unknown
+                    capability:
+                      type: string
+                      minLength: 1
+                    failure_reason:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - host_key_unknown
+                            - key_refused
+                            - repository_not_found
+                            - host_unreachable
+                            - address_invalid
+                            - unauthorized
+                            - forbidden
+                            - rate_limited
+                            - unreachable
+                            - invalid_response
+                            - host_key_changed
+                            - identity_unavailable
+                            - held_by_instance
+                            - deadline_exceeded
+                            - unclassified
+                        - type: "null"
+                  required:
+                    - status
+                    - capability
+                    - failure_reason
+                  additionalProperties: false
+          required:
+            - global
+            - projects
+          additionalProperties: false

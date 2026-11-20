@@ -1,0 +1,310 @@
+# Generated from the operation registry by kanthord gateway openapi.
+pathItem:
+  get:
+    operationId: mission.export
+    tags:
+      - mission
+    description: Export the current mission plan.
+    x-access-policy: human
+    x-timeout-ms: 30000
+    x-mutation: false
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: mission_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/mission.export.Input/properties/params/properties/m\
+            ission_id"
+      - name: format
+        in: query
+        required: true
+        schema:
+          $ref: "#/components/schemas/mission.export.Input/properties/query/properties/fo\
+            rmat"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/mission.export.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+components:
+  schemas:
+    mission.export.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties:
+            mission_id:
+              type: string
+              minLength: 34
+              maxLength: 34
+              pattern: ^mission_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+              description: mission_ followed by a canonical 26-character uppercase ULID.
+          required:
+            - mission_id
+          additionalProperties: false
+        query:
+          type: object
+          properties:
+            format:
+              type: string
+              enum:
+                - markdown
+                - json
+          required:
+            - format
+          additionalProperties: false
+        body:
+          type: "null"
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    mission.export.Output:
+      anyOf:
+        - type: object
+          properties:
+            mission_id:
+              type: string
+              minLength: 34
+              maxLength: 34
+              pattern: ^mission_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+              description: mission_ followed by a canonical 26-character uppercase ULID.
+            mission_version:
+              type: integer
+              exclusiveMinimum: 0
+              maximum: 9007199254740991
+            entries:
+              type: array
+              items:
+                anyOf:
+                  - type: object
+                    properties:
+                      filename:
+                        type: string
+                        pattern: ^[a-z][a-z0-9_-]*\.md$
+                      id:
+                        type: string
+                        minLength: 31
+                        maxLength: 31
+                        pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                        description: node_ followed by a canonical 26-character uppercase ULID.
+                      intent:
+                        type: string
+                        enum:
+                          - implement
+                          - examine
+                      name:
+                        type: string
+                        minLength: 1
+                      requirement:
+                        type: string
+                        minLength: 1
+                      criterion:
+                        type: string
+                        minLength: 1
+                      verifications:
+                        minItems: 1
+                        type: array
+                        items:
+                          type: string
+                          minLength: 1
+                      bindings:
+                        type: array
+                        items:
+                          type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 64
+                          pattern: ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$
+                      external_links:
+                        type: array
+                        items:
+                          oneOf:
+                            - type: object
+                              properties:
+                                kind:
+                                  type: string
+                                  const: github_issue
+                                resource_identity:
+                                  type: string
+                                  pattern: ^conversation:github:[^/\s:]+\/[^/\s:]+$
+                                number:
+                                  type: integer
+                                  exclusiveMinimum: 0
+                                  maximum: 9007199254740991
+                              required:
+                                - kind
+                                - resource_identity
+                                - number
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                kind:
+                                  type: string
+                                  const: jira_issue
+                                resource_identity:
+                                  type: string
+                                  pattern: ^conversation:jira:[a-z0-9][a-z0-9-]*\.atlassian\.net\/[A-Z][A-Z0-9_]{1,9}$
+                                key:
+                                  type: string
+                              required:
+                                - kind
+                                - resource_identity
+                                - key
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                kind:
+                                  type: string
+                                  const: slack_thread
+                                resource_identity:
+                                  type: string
+                                  pattern: ^conversation:slack:T[A-Z0-9]{2,31}$
+                                channel:
+                                  type: string
+                                  pattern: ^[CG][A-Z0-9]{2,31}$
+                                thread_ts:
+                                  type: string
+                                  pattern: ^[0-9]+\.[0-9]{6}$
+                              required:
+                                - kind
+                                - resource_identity
+                                - channel
+                                - thread_ts
+                              additionalProperties: false
+                      commit_type:
+                        type: string
+                        enum:
+                          - feat
+                          - fix
+                          - docs
+                          - style
+                          - refactor
+                          - test
+                          - chore
+                      depends_on:
+                        type: array
+                        items:
+                          type: string
+                          pattern: ^[a-z][a-z0-9_-]*\.md$
+                    required:
+                      - filename
+                      - id
+                      - intent
+                      - name
+                      - requirement
+                      - criterion
+                      - verifications
+                      - bindings
+                      - tags
+                      - external_links
+                      - depends_on
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      filename:
+                        type: string
+                        pattern: ^[a-z][a-z0-9_-]*\.md$
+                      id:
+                        type: string
+                        minLength: 31
+                        maxLength: 31
+                        pattern: ^task_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                        description: task_ followed by a canonical 26-character uppercase ULID.
+                      node:
+                        type: string
+                        pattern: ^[a-z][a-z0-9_-]*\.md$
+                      name:
+                        type: string
+                        minLength: 1
+                      requirement:
+                        type: string
+                        minLength: 1
+                      criterion:
+                        type: string
+                        minLength: 1
+                      verifications:
+                        minItems: 1
+                        type: array
+                        items:
+                          type: string
+                          minLength: 1
+                      bindings:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - filename
+                      - id
+                      - node
+                      - name
+                      - requirement
+                      - criterion
+                      - verifications
+                      - bindings
+                    additionalProperties: false
+          required:
+            - mission_id
+            - mission_version
+            - entries
+          additionalProperties: false
+        - type: object
+          properties:
+            mission_id:
+              type: string
+              minLength: 34
+              maxLength: 34
+              pattern: ^mission_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+              description: mission_ followed by a canonical 26-character uppercase ULID.
+            mission_version:
+              type: integer
+              exclusiveMinimum: 0
+              maximum: 9007199254740991
+            files:
+              type: array
+              items:
+                type: object
+                properties:
+                  filename:
+                    type: string
+                    minLength: 1
+                  content:
+                    type: string
+                required:
+                  - filename
+                  - content
+                additionalProperties: false
+          required:
+            - mission_id
+            - mission_version
+            - files
+          additionalProperties: false

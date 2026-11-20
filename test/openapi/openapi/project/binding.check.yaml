@@ -1,0 +1,489 @@
+# Generated from the operation registry by kanthord gateway openapi.
+pathItem:
+  post:
+    operationId: project.binding.check
+    tags:
+      - project
+    description: Check an unsaved repository binding configuration without a write.
+    x-access-policy: human
+    x-timeout-ms: 30000
+    x-mutation: false
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/project.binding.check.Input/properties/params/prope\
+            rties/project_id"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/project.binding.check.Input/properties/body"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/project.binding.check.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+components:
+  schemas:
+    project.binding.check.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties:
+            project_id:
+              type: string
+              minLength: 1
+          required:
+            - project_id
+          additionalProperties: false
+        query:
+          type: object
+          properties: {}
+          additionalProperties: false
+        body:
+          type: object
+          properties:
+            kind:
+              type: string
+              const: repository
+            config:
+              type: object
+              properties:
+                available:
+                  type: boolean
+                platform:
+                  type: string
+                  enum:
+                    - github
+                    - gitlab
+                    - bitbucket
+                address:
+                  type: string
+                  minLength: 1
+                strategy:
+                  type: object
+                  properties:
+                    base_branch:
+                      type: string
+                      minLength: 1
+                    upstream_branch:
+                      type: string
+                      minLength: 1
+                    action:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          enum:
+                            - pull_request
+                            - push
+                        follows:
+                          oneOf:
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: assessment_passed
+                              required:
+                                - type
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: action_end_state
+                                binding:
+                                  type: string
+                                  minLength: 1
+                                  maxLength: 63
+                                  pattern: ^[a-z][a-z0-9-]*$
+                              required:
+                                - type
+                                - binding
+                              additionalProperties: false
+                        landing:
+                          type: string
+                          enum:
+                            - human
+                            - kanthord
+                        ignored_checks:
+                          maxItems: 32
+                          type: array
+                          items:
+                            type: string
+                            minLength: 1
+                      required:
+                        - name
+                        - follows
+                      additionalProperties: false
+                  required:
+                    - base_branch
+                  additionalProperties: false
+                ssh_credential:
+                  type: string
+                  minLength: 1
+                credential:
+                  type: string
+                  minLength: 1
+                prompts:
+                  type: object
+                  properties:
+                    instruction_file:
+                      type: string
+                    repository:
+                      type: string
+                    agents:
+                      type: object
+                      properties:
+                        swe@1:
+                          type: string
+                        re@1:
+                          type: string
+                        pe@1:
+                          type: string
+                        ops@1:
+                          type: string
+                        plan@1:
+                          type: string
+                      additionalProperties: false
+                  additionalProperties: false
+                environment:
+                  type: object
+                  properties:
+                    image:
+                      type: string
+                      minLength: 1
+                    build:
+                      type: object
+                      properties:
+                        dockerfile:
+                          type: string
+                          minLength: 1
+                        context:
+                          type: string
+                          minLength: 1
+                      additionalProperties: {}
+                    features:
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties: {}
+                    containerEnv:
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties:
+                        type: string
+                    remoteEnv:
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties:
+                        anyOf:
+                          - type: string
+                          - type: "null"
+                    onCreateCommand:
+                      anyOf:
+                        - anyOf:
+                            - type: string
+                              minLength: 1
+                            - minItems: 1
+                              type: array
+                              items:
+                                type: string
+                        - type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: string
+                                minLength: 1
+                              - minItems: 1
+                                type: array
+                                items:
+                                  type: string
+                    updateContentCommand:
+                      anyOf:
+                        - anyOf:
+                            - type: string
+                              minLength: 1
+                            - minItems: 1
+                              type: array
+                              items:
+                                type: string
+                        - type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: string
+                                minLength: 1
+                              - minItems: 1
+                                type: array
+                                items:
+                                  type: string
+                    postCreateCommand:
+                      anyOf:
+                        - anyOf:
+                            - type: string
+                              minLength: 1
+                            - minItems: 1
+                              type: array
+                              items:
+                                type: string
+                        - type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: string
+                                minLength: 1
+                              - minItems: 1
+                                type: array
+                                items:
+                                  type: string
+                    customizations:
+                      type: object
+                      properties:
+                        kanthord:
+                          type: object
+                          properties:
+                            checks:
+                              maxItems: 32
+                              type: array
+                              items:
+                                type: string
+                                pattern: \S
+                          additionalProperties: {}
+                      additionalProperties: {}
+                  additionalProperties: {}
+                environment_secrets:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                    minLength: 1
+                link_trust: {}
+                inbox: {}
+              required:
+                - available
+                - platform
+                - address
+                - strategy
+                - ssh_credential
+              additionalProperties: false
+          required:
+            - kind
+            - config
+          additionalProperties: false
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    project.binding.check.Output:
+      type: object
+      properties:
+        address:
+          type: object
+          properties:
+            status:
+              type: string
+              enum:
+                - healthy
+                - unhealthy
+                - unknown
+            capability:
+              type: string
+              minLength: 1
+            failure_reason:
+              anyOf:
+                - type: string
+                  enum:
+                    - host_key_unknown
+                    - key_refused
+                    - repository_not_found
+                    - host_unreachable
+                    - address_invalid
+                    - unauthorized
+                    - forbidden
+                    - rate_limited
+                    - unreachable
+                    - invalid_response
+                    - host_key_changed
+                    - identity_unavailable
+                    - held_by_instance
+                    - deadline_exceeded
+                    - unclassified
+                - type: "null"
+          required:
+            - status
+            - capability
+            - failure_reason
+          additionalProperties: false
+        ssh_credential:
+          type: object
+          properties:
+            status:
+              type: string
+              enum:
+                - healthy
+                - unhealthy
+                - unknown
+            capability:
+              type: string
+              minLength: 1
+            failure_reason:
+              anyOf:
+                - type: string
+                  enum:
+                    - host_key_unknown
+                    - key_refused
+                    - repository_not_found
+                    - host_unreachable
+                    - address_invalid
+                    - unauthorized
+                    - forbidden
+                    - rate_limited
+                    - unreachable
+                    - invalid_response
+                    - host_key_changed
+                    - identity_unavailable
+                    - held_by_instance
+                    - deadline_exceeded
+                    - unclassified
+                - type: "null"
+          required:
+            - status
+            - capability
+            - failure_reason
+          additionalProperties: false
+        credential:
+          anyOf:
+            - type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - healthy
+                    - unhealthy
+                    - unknown
+                capability:
+                  type: string
+                  minLength: 1
+                failure_reason:
+                  anyOf:
+                    - type: string
+                      enum:
+                        - host_key_unknown
+                        - key_refused
+                        - repository_not_found
+                        - host_unreachable
+                        - address_invalid
+                        - unauthorized
+                        - forbidden
+                        - rate_limited
+                        - unreachable
+                        - invalid_response
+                        - host_key_changed
+                        - identity_unavailable
+                        - held_by_instance
+                        - deadline_exceeded
+                        - unclassified
+                    - type: "null"
+              required:
+                - status
+                - capability
+                - failure_reason
+              additionalProperties: false
+            - type: "null"
+        instruction_file:
+          anyOf:
+            - type: object
+              properties:
+                path:
+                  type: string
+                commit:
+                  anyOf:
+                    - type: string
+                    - type: "null"
+                state:
+                  type: string
+                  enum:
+                    - present
+                    - absent
+                    - invalid
+                    - unreachable
+                reason:
+                  anyOf:
+                    - type: string
+                      enum:
+                        - host_key_unknown
+                        - key_refused
+                        - repository_not_found
+                        - host_unreachable
+                        - address_invalid
+                        - unauthorized
+                        - forbidden
+                        - rate_limited
+                        - unreachable
+                        - invalid_response
+                        - host_key_changed
+                        - identity_unavailable
+                        - held_by_instance
+                        - deadline_exceeded
+                        - unclassified
+                        - too_large
+                        - not_utf8
+                        - unreadable
+                        - control_character
+                        - base_branch_absent
+                    - type: "null"
+              required:
+                - path
+                - commit
+                - state
+                - reason
+              additionalProperties: false
+            - type: "null"
+        instruction_file_hint:
+          anyOf:
+            - type: string
+            - type: "null"
+      required:
+        - address
+        - ssh_credential
+        - credential
+        - instruction_file
+        - instruction_file_hint
+      additionalProperties: false

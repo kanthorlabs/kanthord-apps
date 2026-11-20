@@ -12,6 +12,8 @@ Every section is normative. A change that breaks a rule is a defect.
 - `src/components/ui` holds the vendored shadcn primitives. `src/hooks` holds hooks that more than one
   screen shares.
 - A new or changed operation in `src/api` also updates `mock/`, so that `pnpm dev:all` serves it.
+- A new or changed mock answer passes `scripts/mock-contract.test.mjs`. Refresh `test/openapi/` with
+  `node scripts/openapi-copy.mjs <engine dir>` when the engine contract changes.
 - **A component body holds no business logic.** Derivation, sequencing and error mapping live in
   `src/api` or in a hook beside the screen, for example `use-credential-rotate.ts`. A component reads
   state and renders it.

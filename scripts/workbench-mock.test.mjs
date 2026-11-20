@@ -546,7 +546,7 @@ describe("workbench mock variant session", () => {
 });
 
 describe("workbench mock variant gate", () => {
-  const SEEDED_VARIANT_TOKEN = "mock-seeded-variant-invite-token";
+  const SEEDED_VARIANT_TOKEN = "7d1f4c2a-5b3e-4a8d-9c6f-0a1b2c3d4e02";
   const GUEST_MESSAGE = "/api/workbench/guest/session/message";
   const GUEST_STREAM = "/api/workbench/guest/session/stream";
 
@@ -794,5 +794,27 @@ describe("workbench mock variant gate", () => {
       expect(snapshot.queue).toHaveLength(1);
       stopRun(daemon, VARIANT_CONVERSATION_ID);
     });
+  });
+});
+
+describe("workbench mock members", () => {
+  it("gives each owner member its configuration and each guest member none", () => {
+    const daemon = mockDaemon();
+    const invite = daemon.call("POST", `/api/workbench/session/${HOST_ID}/invite`, {
+      invitee_name: "Dana",
+      project_ids: ["project_a"],
+      granted_operations: [],
+    });
+    const joined = daemon.call("POST", "/api/workbench/invite/join", {
+      invite_token: invite.body.invite_token,
+      name: "Dana",
+    });
+
+    const owner = daemon.call("GET", `/api/workbench/session/${HOST_ID}`).body.members;
+    const guest = daemon.call("GET", "/api/workbench/guest/session", {}, joined.body.guest_token)
+      .body.members;
+
+    expect(owner.map((member) => member.configuration)).toEqual([CONFIGURATION]);
+    expect(guest.map((member) => "configuration" in member)).toEqual([false]);
   });
 });

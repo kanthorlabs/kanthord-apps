@@ -1,0 +1,297 @@
+# Generated from the operation registry by kanthord gateway openapi.
+pathItem:
+  get:
+    operationId: workbench.session.get
+    tags:
+      - workbench
+    description: Get the configuration, the entries of the completed runs, the run
+      state and the open out-of-scope requests of a workbench session.
+    x-access-policy: human
+    x-timeout-ms: 30000
+    x-mutation: false
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/workbench.session.get.Input/properties/params/prope\
+            rties/session_id"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/workbench.session.get.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+components:
+  schemas:
+    workbench.session.get.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties:
+            session_id:
+              type: string
+              minLength: 44
+              maxLength: 44
+              pattern: ^workbench_session_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+              description: workbench_session_ followed by a canonical 26-character uppercase
+                ULID.
+          required:
+            - session_id
+          additionalProperties: false
+        query:
+          type: object
+          properties: {}
+          additionalProperties: false
+        body:
+          type: "null"
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    workbench.session.get.Output:
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 44
+          maxLength: 44
+          pattern: ^workbench_session_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+          description: workbench_session_ followed by a canonical 26-character uppercase
+            ULID.
+        agent_name:
+          type: string
+        variant_id:
+          anyOf:
+            - type: string
+              minLength: 40
+              maxLength: 40
+              pattern: ^agent_variant_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+              description: agent_variant_ followed by a canonical 26-character uppercase ULID.
+            - type: "null"
+        configuration:
+          type: object
+          properties:
+            agent_provider:
+              type: string
+              minLength: 1
+              maxLength: 256
+            model_identifier:
+              type: string
+              minLength: 1
+              maxLength: 256
+            reasoning_effort:
+              type: string
+              enum:
+                - off
+                - minimal
+                - low
+                - medium
+                - high
+                - xhigh
+                - max
+          required:
+            - agent_provider
+            - model_identifier
+            - reasoning_effort
+          additionalProperties: false
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              session_id:
+                type: string
+              agent_name:
+                type: string
+              display_name:
+                type: string
+              configuration:
+                type: object
+                properties:
+                  agent_provider:
+                    type: string
+                    minLength: 1
+                    maxLength: 256
+                  model_identifier:
+                    type: string
+                    minLength: 1
+                    maxLength: 256
+                  reasoning_effort:
+                    type: string
+                    enum:
+                      - off
+                      - minimal
+                      - low
+                      - medium
+                      - high
+                      - xhigh
+                      - max
+                required:
+                  - agent_provider
+                  - model_identifier
+                  - reasoning_effort
+                additionalProperties: false
+            required:
+              - session_id
+              - agent_name
+              - display_name
+              - configuration
+            additionalProperties: false
+        entries:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              id:
+                type: string
+              parentId:
+                anyOf:
+                  - type: string
+                  - type: "null"
+              timestamp:
+                type: string
+              session_id:
+                type: string
+              agent_name:
+                type: string
+              phase:
+                type: string
+                enum:
+                  - planner
+                  - reviewer
+            required:
+              - type
+              - id
+              - parentId
+              - timestamp
+              - session_id
+              - agent_name
+            additionalProperties: {}
+        forked_from:
+          anyOf:
+            - type: string
+              minLength: 44
+              maxLength: 44
+              pattern: ^workbench_session_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+              description: workbench_session_ followed by a canonical 26-character uppercase
+                ULID.
+            - type: "null"
+        run_active:
+          type: boolean
+        resume_command:
+          type: string
+        scope_requests:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                minLength: 50
+                maxLength: 50
+                pattern: ^workbench_scope_request_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                description: workbench_scope_request_ followed by a canonical 26-character
+                  uppercase ULID.
+              invite_id:
+                type: string
+              invitee_name:
+                type: string
+              guest_name:
+                type: string
+              agent_name:
+                type: string
+              operation_id:
+                type: string
+              description:
+                type: string
+              input: {}
+              target_id:
+                type: string
+              ids:
+                type: array
+                items:
+                  type: string
+              project_id:
+                type: string
+              expected_keys:
+                type: array
+                items:
+                  type: string
+              created_at:
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
+                description: Unix epoch time in milliseconds.
+              expires_at:
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
+                description: Unix epoch time in milliseconds.
+              state:
+                type: string
+                enum:
+                  - open
+                  - running
+              error_code:
+                anyOf:
+                  - type: string
+                  - type: "null"
+            required:
+              - id
+              - invite_id
+              - invitee_name
+              - guest_name
+              - agent_name
+              - operation_id
+              - description
+              - input
+              - target_id
+              - ids
+              - project_id
+              - expected_keys
+              - created_at
+              - expires_at
+              - state
+              - error_code
+            additionalProperties: false
+      required:
+        - id
+        - agent_name
+        - variant_id
+        - configuration
+        - members
+        - entries
+        - forked_from
+        - run_active
+        - resume_command
+        - scope_requests
+      additionalProperties: false

@@ -1,0 +1,384 @@
+# Generated from the operation registry by kanthord gateway openapi.
+pathItem:
+  post:
+    operationId: mission.import.preview
+    tags:
+      - mission
+    description: Preview a whole-mission import without writing changes.
+    x-access-policy: human
+    x-timeout-ms: 30000
+    x-mutation: false
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: mission_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/mission.import.preview.Input/properties/params/prop\
+            erties/mission_id"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/mission.import.preview.Input/properties/body"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/mission.import.preview.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+components:
+  schemas:
+    mission.import.preview.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties:
+            mission_id:
+              type: string
+              minLength: 34
+              maxLength: 34
+              pattern: ^mission_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+              description: mission_ followed by a canonical 26-character uppercase ULID.
+          required:
+            - mission_id
+          additionalProperties: false
+        query:
+          type: object
+          properties: {}
+          additionalProperties: false
+        body:
+          oneOf:
+            - type: object
+              properties:
+                format:
+                  type: string
+                  const: markdown
+                mission_id:
+                  type: string
+                  minLength: 34
+                  maxLength: 34
+                  pattern: ^mission_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                  description: mission_ followed by a canonical 26-character uppercase ULID.
+                mission_version:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 9007199254740991
+                reason:
+                  type: string
+                  minLength: 1
+                files:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filename:
+                        type: string
+                        minLength: 1
+                      content:
+                        type: string
+                    required:
+                      - filename
+                      - content
+                    additionalProperties: false
+              required:
+                - format
+                - mission_id
+                - mission_version
+                - reason
+                - files
+              additionalProperties: false
+            - type: object
+              properties:
+                format:
+                  type: string
+                  const: json
+                mission_id:
+                  type: string
+                  minLength: 34
+                  maxLength: 34
+                  pattern: ^mission_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                  description: mission_ followed by a canonical 26-character uppercase ULID.
+                mission_version:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 9007199254740991
+                reason:
+                  type: string
+                  minLength: 1
+                entries:
+                  type: array
+                  items:
+                    anyOf:
+                      - type: object
+                        properties:
+                          filename:
+                            type: string
+                            minLength: 1
+                          id:
+                            anyOf:
+                              - type: string
+                                minLength: 31
+                                maxLength: 31
+                                pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                                description: node_ followed by a canonical 26-character uppercase ULID.
+                              - type: string
+                                minLength: 31
+                                maxLength: 31
+                                pattern: ^task_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                                description: task_ followed by a canonical 26-character uppercase ULID.
+                          intent: {}
+                          name:
+                            type: string
+                            minLength: 1
+                          requirement:
+                            type: string
+                            minLength: 1
+                          criterion:
+                            type: string
+                            minLength: 1
+                          verifications:
+                            minItems: 1
+                            type: array
+                            items:
+                              type: string
+                              minLength: 1
+                          bindings:
+                            type: array
+                            items:
+                              type: string
+                          tags: {}
+                          external_links: {}
+                          commit_type: {}
+                          depends_on:
+                            type: array
+                            items:
+                              type: string
+                              minLength: 1
+                        required:
+                          - filename
+                          - intent
+                          - name
+                          - requirement
+                          - criterion
+                          - verifications
+                          - bindings
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          filename:
+                            type: string
+                            minLength: 1
+                          id:
+                            anyOf:
+                              - type: string
+                                minLength: 31
+                                maxLength: 31
+                                pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                                description: node_ followed by a canonical 26-character uppercase ULID.
+                              - type: string
+                                minLength: 31
+                                maxLength: 31
+                                pattern: ^task_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                                description: task_ followed by a canonical 26-character uppercase ULID.
+                          node:
+                            type: string
+                            minLength: 1
+                          name:
+                            type: string
+                            minLength: 1
+                          requirement:
+                            type: string
+                            minLength: 1
+                          criterion:
+                            type: string
+                            minLength: 1
+                          verifications:
+                            minItems: 1
+                            type: array
+                            items:
+                              type: string
+                              minLength: 1
+                          bindings:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - filename
+                          - node
+                          - name
+                          - requirement
+                          - criterion
+                          - verifications
+                          - bindings
+                        additionalProperties: false
+              required:
+                - format
+                - mission_id
+                - mission_version
+                - reason
+                - entries
+              additionalProperties: false
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    mission.import.preview.Output:
+      type: object
+      properties:
+        mission_id:
+          type: string
+          minLength: 34
+          maxLength: 34
+          pattern: ^mission_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+          description: mission_ followed by a canonical 26-character uppercase ULID.
+        expected_mission_version:
+          type: integer
+          exclusiveMinimum: 0
+          maximum: 9007199254740991
+        preview_digest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        creates:
+          type: array
+          items:
+            type: string
+            pattern: ^[a-z][a-z0-9_-]*\.md$
+        updates:
+          type: array
+          items:
+            type: string
+            minLength: 31
+            maxLength: 31
+            pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+            description: node_ followed by a canonical 26-character uppercase ULID.
+        retirements:
+          type: array
+          items:
+            type: string
+            minLength: 31
+            maxLength: 31
+            pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+            description: node_ followed by a canonical 26-character uppercase ULID.
+        removed_edges:
+          type: array
+          items:
+            type: object
+            properties:
+              dependent_id:
+                type: string
+                minLength: 31
+                maxLength: 31
+                pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                description: node_ followed by a canonical 26-character uppercase ULID.
+              depends_on_id:
+                type: string
+                minLength: 31
+                maxLength: 31
+                pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                description: node_ followed by a canonical 26-character uppercase ULID.
+            required:
+              - dependent_id
+              - depends_on_id
+            additionalProperties: false
+        no_ops:
+          type: array
+          items:
+            type: string
+            minLength: 31
+            maxLength: 31
+            pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+            description: node_ followed by a canonical 26-character uppercase ULID.
+        drifts:
+          type: array
+          items:
+            type: object
+            properties:
+              node_id:
+                type: string
+                minLength: 31
+                maxLength: 31
+                pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                description: node_ followed by a canonical 26-character uppercase ULID.
+              filename:
+                type: string
+                pattern: ^[a-z][a-z0-9_-]*\.md$
+              visible_revision:
+                type: integer
+                exclusiveMinimum: 0
+                maximum: 9007199254740991
+            required:
+              - node_id
+              - filename
+              - visible_revision
+            additionalProperties: false
+        violations:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              message:
+                type: string
+              filename:
+                anyOf:
+                  - type: string
+                  - type: "null"
+              node_id:
+                anyOf:
+                  - type: string
+                    minLength: 31
+                    maxLength: 31
+                    pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                    description: node_ followed by a canonical 26-character uppercase ULID.
+                  - type: "null"
+              details:
+                anyOf:
+                  - {}
+                  - type: "null"
+            required:
+              - code
+              - message
+              - filename
+              - node_id
+              - details
+            additionalProperties: false
+      required:
+        - mission_id
+        - expected_mission_version
+        - preview_digest
+        - creates
+        - updates
+        - retirements
+        - removed_edges
+        - no_ops
+        - drifts
+        - violations
+      additionalProperties: false

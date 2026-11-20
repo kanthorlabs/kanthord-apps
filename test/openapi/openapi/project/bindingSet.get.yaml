@@ -1,0 +1,1264 @@
+# Generated from the operation registry by kanthord gateway openapi.
+pathItem:
+  get:
+    operationId: project.bindingSet.get
+    tags:
+      - project
+    description: Export the complete current binding set.
+    x-access-policy: human
+    x-timeout-ms: 30000
+    x-mutation: false
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/project.bindingSet.get.Input/properties/params/prop\
+            erties/project_id"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/project.bindingSet.get.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+  put:
+    operationId: project.bindingSet.write
+    tags:
+      - project
+    description: Replace the binding set at its expected version.
+    x-access-policy: human
+    x-timeout-ms: 30000
+    x-mutation: true
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/project.bindingSet.write.Input/properties/params/pr\
+            operties/project_id"
+      - $ref: ../shared/components.yaml#/components/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/project.bindingSet.write.Input/properties/body"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/project.bindingSet.write.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "422":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+components:
+  schemas:
+    project.bindingSet.get.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties:
+            project_id:
+              type: string
+              minLength: 1
+          required:
+            - project_id
+          additionalProperties: false
+        query:
+          type: object
+          properties: {}
+          additionalProperties: false
+        body:
+          type: "null"
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    project.bindingSet.get.Output:
+      type: object
+      properties:
+        version:
+          type: integer
+          exclusiveMinimum: 0
+          maximum: 9007199254740991
+        bindings:
+          type: object
+          propertyNames:
+            type: string
+            minLength: 1
+            maxLength: 63
+            pattern: ^[a-z][a-z0-9-]*$
+          additionalProperties:
+            oneOf:
+              - type: object
+                properties:
+                  kind:
+                    type: string
+                    const: repository
+                  config:
+                    type: object
+                    properties:
+                      available:
+                        type: boolean
+                      platform:
+                        type: string
+                        enum:
+                          - github
+                          - gitlab
+                          - bitbucket
+                      address:
+                        type: string
+                        minLength: 1
+                      strategy:
+                        type: object
+                        properties:
+                          base_branch:
+                            type: string
+                            minLength: 1
+                          upstream_branch:
+                            type: string
+                            minLength: 1
+                          action:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                                enum:
+                                  - pull_request
+                                  - push
+                              follows:
+                                oneOf:
+                                  - type: object
+                                    properties:
+                                      type:
+                                        type: string
+                                        const: assessment_passed
+                                    required:
+                                      - type
+                                    additionalProperties: false
+                                  - type: object
+                                    properties:
+                                      type:
+                                        type: string
+                                        const: action_end_state
+                                      binding:
+                                        type: string
+                                        minLength: 1
+                                        maxLength: 63
+                                        pattern: ^[a-z][a-z0-9-]*$
+                                    required:
+                                      - type
+                                      - binding
+                                    additionalProperties: false
+                              landing:
+                                type: string
+                                enum:
+                                  - human
+                                  - kanthord
+                              ignored_checks:
+                                maxItems: 32
+                                type: array
+                                items:
+                                  type: string
+                                  minLength: 1
+                            required:
+                              - name
+                              - follows
+                            additionalProperties: false
+                        required:
+                          - base_branch
+                        additionalProperties: false
+                      ssh_credential:
+                        type: string
+                        minLength: 1
+                      credential:
+                        type: string
+                        minLength: 1
+                      prompts:
+                        type: object
+                        properties:
+                          instruction_file:
+                            type: string
+                          repository:
+                            type: string
+                          agents:
+                            type: object
+                            properties:
+                              swe@1:
+                                type: string
+                              re@1:
+                                type: string
+                              pe@1:
+                                type: string
+                              ops@1:
+                                type: string
+                              plan@1:
+                                type: string
+                            additionalProperties: false
+                        additionalProperties: false
+                      environment:
+                        type: object
+                        properties:
+                          image:
+                            type: string
+                            minLength: 1
+                          build:
+                            type: object
+                            properties:
+                              dockerfile:
+                                type: string
+                                minLength: 1
+                              context:
+                                type: string
+                                minLength: 1
+                            additionalProperties: {}
+                          features:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties: {}
+                          containerEnv:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                          remoteEnv:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              anyOf:
+                                - type: string
+                                - type: "null"
+                          onCreateCommand:
+                            anyOf:
+                              - anyOf:
+                                  - type: string
+                                    minLength: 1
+                                  - minItems: 1
+                                    type: array
+                                    items:
+                                      type: string
+                              - type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties:
+                                  anyOf:
+                                    - type: string
+                                      minLength: 1
+                                    - minItems: 1
+                                      type: array
+                                      items:
+                                        type: string
+                          updateContentCommand:
+                            anyOf:
+                              - anyOf:
+                                  - type: string
+                                    minLength: 1
+                                  - minItems: 1
+                                    type: array
+                                    items:
+                                      type: string
+                              - type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties:
+                                  anyOf:
+                                    - type: string
+                                      minLength: 1
+                                    - minItems: 1
+                                      type: array
+                                      items:
+                                        type: string
+                          postCreateCommand:
+                            anyOf:
+                              - anyOf:
+                                  - type: string
+                                    minLength: 1
+                                  - minItems: 1
+                                    type: array
+                                    items:
+                                      type: string
+                              - type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties:
+                                  anyOf:
+                                    - type: string
+                                      minLength: 1
+                                    - minItems: 1
+                                      type: array
+                                      items:
+                                        type: string
+                          customizations:
+                            type: object
+                            properties:
+                              kanthord:
+                                type: object
+                                properties:
+                                  checks:
+                                    maxItems: 32
+                                    type: array
+                                    items:
+                                      type: string
+                                      pattern: \S
+                                additionalProperties: {}
+                            additionalProperties: {}
+                        additionalProperties: {}
+                      environment_secrets:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                          minLength: 1
+                      link_trust: {}
+                      inbox: {}
+                    required:
+                      - available
+                      - platform
+                      - address
+                      - strategy
+                      - ssh_credential
+                    additionalProperties: false
+                required:
+                  - kind
+                  - config
+                additionalProperties: false
+              - type: object
+                properties:
+                  kind:
+                    type: string
+                    const: worker
+                  config:
+                    type: object
+                    properties:
+                      worker:
+                        type: string
+                        minLength: 1
+                      instance_count:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      environment:
+                        type: string
+                        minLength: 1
+                      resource_budget:
+                        type: object
+                        properties:
+                          turns:
+                            type: integer
+                            exclusiveMinimum: 0
+                            maximum: 9007199254740991
+                          wall_time_ms:
+                            type: integer
+                            exclusiveMinimum: 0
+                            maximum: 9007199254740991
+                        required:
+                          - turns
+                          - wall_time_ms
+                        additionalProperties: false
+                      entries:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            agent:
+                              type: string
+                              minLength: 1
+                            agent_provider:
+                              type: string
+                            model_identifier:
+                              type: string
+                            reasoning_effort:
+                              type: string
+                            fallback_configurations:
+                              maxItems: 7
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  agent_provider:
+                                    type: string
+                                    minLength: 1
+                                  model_identifier:
+                                    type: string
+                                    minLength: 1
+                                  reasoning_effort:
+                                    type: string
+                                    enum:
+                                      - off
+                                      - minimal
+                                      - low
+                                      - medium
+                                      - high
+                                      - xhigh
+                                      - max
+                                required:
+                                  - agent_provider
+                                  - model_identifier
+                                  - reasoning_effort
+                                additionalProperties: false
+                          required:
+                            - agent
+                          additionalProperties: false
+                      worker_instances:
+                        maxItems: 64
+                        type: array
+                        items:
+                          type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 64
+                          pattern: ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$
+                    required:
+                      - worker
+                    additionalProperties: false
+                required:
+                  - kind
+                  - config
+                additionalProperties: false
+              - type: object
+                properties:
+                  kind:
+                    type: string
+                    const: storage
+                  config:
+                    type: object
+                    properties:
+                      available:
+                        type: boolean
+                      endpoint:
+                        type: string
+                        format: uri
+                      bucket:
+                        type: string
+                        minLength: 1
+                      region:
+                        type: string
+                        minLength: 1
+                      prefix:
+                        type: string
+                      credential:
+                        type: string
+                        minLength: 1
+                    required:
+                      - available
+                      - endpoint
+                      - bucket
+                      - region
+                      - prefix
+                      - credential
+                    additionalProperties: false
+                required:
+                  - kind
+                  - config
+                additionalProperties: false
+              - type: object
+                properties:
+                  kind:
+                    type: string
+                    const: conversation
+                  config:
+                    oneOf:
+                      - type: object
+                        properties:
+                          available:
+                            type: boolean
+                          platform:
+                            type: string
+                            const: github
+                          repository:
+                            type: string
+                            pattern: ^[^/\s:]+\/[^/\s:]+$
+                          credential:
+                            type: string
+                            minLength: 1
+                          reply_policy:
+                            type: object
+                            properties:
+                              follows:
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: assessment_passed
+                                required:
+                                  - type
+                                additionalProperties: false
+                            required:
+                              - follows
+                            additionalProperties: false
+                          link_trust: {}
+                          inbox: {}
+                        required:
+                          - available
+                          - platform
+                          - repository
+                          - credential
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          available:
+                            type: boolean
+                          platform:
+                            type: string
+                            const: jira
+                          site:
+                            type: string
+                            pattern: ^[A-Za-z0-9][A-Za-z0-9-]*\.[Aa][Tt][Ll][Aa][Ss][Ss][Ii][Aa][Nn]\.[Nn][Ee][Tt]$
+                          project_key:
+                            type: string
+                            pattern: ^[A-Z][A-Z0-9_]{1,9}$
+                          credential:
+                            type: string
+                            minLength: 1
+                          reply_policy:
+                            type: object
+                            properties:
+                              follows:
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: assessment_passed
+                                required:
+                                  - type
+                                additionalProperties: false
+                            required:
+                              - follows
+                            additionalProperties: false
+                          link_trust: {}
+                          inbox: {}
+                        required:
+                          - available
+                          - platform
+                          - site
+                          - project_key
+                          - credential
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          available:
+                            type: boolean
+                          platform:
+                            type: string
+                            const: slack
+                          team_id:
+                            type: string
+                            pattern: ^T[A-Z0-9]{2,31}$
+                          credential:
+                            type: string
+                            minLength: 1
+                          reply_policy:
+                            type: object
+                            properties:
+                              follows:
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: assessment_passed
+                                required:
+                                  - type
+                                additionalProperties: false
+                            required:
+                              - follows
+                            additionalProperties: false
+                          link_trust: {}
+                          inbox: {}
+                        required:
+                          - available
+                          - platform
+                          - team_id
+                          - credential
+                        additionalProperties: false
+                required:
+                  - kind
+                  - config
+                additionalProperties: false
+      required:
+        - version
+        - bindings
+      additionalProperties: false
+    project.bindingSet.write.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties:
+            project_id:
+              type: string
+              minLength: 1
+          required:
+            - project_id
+          additionalProperties: false
+        query:
+          type: object
+          properties: {}
+          additionalProperties: false
+        body:
+          type: object
+          properties:
+            version:
+              type: integer
+              exclusiveMinimum: 0
+              maximum: 9007199254740991
+            bindings:
+              type: object
+              propertyNames:
+                type: string
+                minLength: 1
+                maxLength: 63
+                pattern: ^[a-z][a-z0-9-]*$
+              additionalProperties:
+                oneOf:
+                  - type: object
+                    properties:
+                      kind:
+                        type: string
+                        const: repository
+                      config:
+                        type: object
+                        properties:
+                          available:
+                            type: boolean
+                          platform:
+                            type: string
+                            enum:
+                              - github
+                              - gitlab
+                              - bitbucket
+                          address:
+                            type: string
+                            minLength: 1
+                          strategy:
+                            type: object
+                            properties:
+                              base_branch:
+                                type: string
+                                minLength: 1
+                              upstream_branch:
+                                type: string
+                                minLength: 1
+                              action:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                                    enum:
+                                      - pull_request
+                                      - push
+                                  follows:
+                                    oneOf:
+                                      - type: object
+                                        properties:
+                                          type:
+                                            type: string
+                                            const: assessment_passed
+                                        required:
+                                          - type
+                                        additionalProperties: false
+                                      - type: object
+                                        properties:
+                                          type:
+                                            type: string
+                                            const: action_end_state
+                                          binding:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 63
+                                            pattern: ^[a-z][a-z0-9-]*$
+                                        required:
+                                          - type
+                                          - binding
+                                        additionalProperties: false
+                                  landing:
+                                    type: string
+                                    enum:
+                                      - human
+                                      - kanthord
+                                  ignored_checks:
+                                    maxItems: 32
+                                    type: array
+                                    items:
+                                      type: string
+                                      minLength: 1
+                                required:
+                                  - name
+                                  - follows
+                                additionalProperties: false
+                            required:
+                              - base_branch
+                            additionalProperties: false
+                          ssh_credential:
+                            type: string
+                            minLength: 1
+                          credential:
+                            type: string
+                            minLength: 1
+                          prompts:
+                            type: object
+                            properties:
+                              instruction_file:
+                                type: string
+                              repository:
+                                type: string
+                              agents:
+                                type: object
+                                properties:
+                                  swe@1:
+                                    type: string
+                                  re@1:
+                                    type: string
+                                  pe@1:
+                                    type: string
+                                  ops@1:
+                                    type: string
+                                  plan@1:
+                                    type: string
+                                additionalProperties: false
+                            additionalProperties: false
+                          environment:
+                            type: object
+                            properties:
+                              image:
+                                type: string
+                                minLength: 1
+                              build:
+                                type: object
+                                properties:
+                                  dockerfile:
+                                    type: string
+                                    minLength: 1
+                                  context:
+                                    type: string
+                                    minLength: 1
+                                additionalProperties: {}
+                              features:
+                                type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties: {}
+                              containerEnv:
+                                type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties:
+                                  type: string
+                              remoteEnv:
+                                type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties:
+                                  anyOf:
+                                    - type: string
+                                    - type: "null"
+                              onCreateCommand:
+                                anyOf:
+                                  - anyOf:
+                                      - type: string
+                                        minLength: 1
+                                      - minItems: 1
+                                        type: array
+                                        items:
+                                          type: string
+                                  - type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties:
+                                      anyOf:
+                                        - type: string
+                                          minLength: 1
+                                        - minItems: 1
+                                          type: array
+                                          items:
+                                            type: string
+                              updateContentCommand:
+                                anyOf:
+                                  - anyOf:
+                                      - type: string
+                                        minLength: 1
+                                      - minItems: 1
+                                        type: array
+                                        items:
+                                          type: string
+                                  - type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties:
+                                      anyOf:
+                                        - type: string
+                                          minLength: 1
+                                        - minItems: 1
+                                          type: array
+                                          items:
+                                            type: string
+                              postCreateCommand:
+                                anyOf:
+                                  - anyOf:
+                                      - type: string
+                                        minLength: 1
+                                      - minItems: 1
+                                        type: array
+                                        items:
+                                          type: string
+                                  - type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties:
+                                      anyOf:
+                                        - type: string
+                                          minLength: 1
+                                        - minItems: 1
+                                          type: array
+                                          items:
+                                            type: string
+                              customizations:
+                                type: object
+                                properties:
+                                  kanthord:
+                                    type: object
+                                    properties:
+                                      checks:
+                                        maxItems: 32
+                                        type: array
+                                        items:
+                                          type: string
+                                          pattern: \S
+                                    additionalProperties: {}
+                                additionalProperties: {}
+                            additionalProperties: {}
+                          environment_secrets:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                              minLength: 1
+                          link_trust: {}
+                          inbox: {}
+                        required:
+                          - available
+                          - platform
+                          - address
+                          - strategy
+                          - ssh_credential
+                        additionalProperties: false
+                    required:
+                      - kind
+                      - config
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      kind:
+                        type: string
+                        const: worker
+                      config:
+                        type: object
+                        properties:
+                          worker:
+                            type: string
+                            minLength: 1
+                          instance_count:
+                            type: integer
+                            minimum: -9007199254740991
+                            maximum: 9007199254740991
+                          environment:
+                            type: string
+                            minLength: 1
+                          resource_budget:
+                            type: object
+                            properties:
+                              turns:
+                                type: integer
+                                exclusiveMinimum: 0
+                                maximum: 9007199254740991
+                              wall_time_ms:
+                                type: integer
+                                exclusiveMinimum: 0
+                                maximum: 9007199254740991
+                            required:
+                              - turns
+                              - wall_time_ms
+                            additionalProperties: false
+                          entries:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                agent:
+                                  type: string
+                                  minLength: 1
+                                agent_provider:
+                                  type: string
+                                model_identifier:
+                                  type: string
+                                reasoning_effort:
+                                  type: string
+                                fallback_configurations:
+                                  maxItems: 7
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      agent_provider:
+                                        type: string
+                                        minLength: 1
+                                      model_identifier:
+                                        type: string
+                                        minLength: 1
+                                      reasoning_effort:
+                                        type: string
+                                        enum:
+                                          - off
+                                          - minimal
+                                          - low
+                                          - medium
+                                          - high
+                                          - xhigh
+                                          - max
+                                    required:
+                                      - agent_provider
+                                      - model_identifier
+                                      - reasoning_effort
+                                    additionalProperties: false
+                              required:
+                                - agent
+                              additionalProperties: false
+                          placement: {}
+                          worker_instances: {}
+                          tags: {}
+                        required:
+                          - worker
+                        additionalProperties: false
+                    required:
+                      - kind
+                      - config
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      kind:
+                        type: string
+                        const: storage
+                      config:
+                        type: object
+                        properties:
+                          available:
+                            type: boolean
+                          endpoint:
+                            type: string
+                            format: uri
+                          bucket:
+                            type: string
+                            minLength: 1
+                          region:
+                            type: string
+                            minLength: 1
+                          prefix:
+                            type: string
+                          credential:
+                            type: string
+                            minLength: 1
+                        required:
+                          - available
+                          - endpoint
+                          - bucket
+                          - region
+                          - prefix
+                          - credential
+                        additionalProperties: false
+                    required:
+                      - kind
+                      - config
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      kind:
+                        type: string
+                        const: conversation
+                      config:
+                        oneOf:
+                          - type: object
+                            properties:
+                              available:
+                                type: boolean
+                              platform:
+                                type: string
+                                const: github
+                              repository:
+                                type: string
+                                pattern: ^[^/\s:]+\/[^/\s:]+$
+                              credential:
+                                type: string
+                                minLength: 1
+                              reply_policy:
+                                type: object
+                                properties:
+                                  follows:
+                                    type: object
+                                    properties:
+                                      type:
+                                        type: string
+                                        const: assessment_passed
+                                    required:
+                                      - type
+                                    additionalProperties: false
+                                required:
+                                  - follows
+                                additionalProperties: false
+                              link_trust: {}
+                              inbox: {}
+                            required:
+                              - available
+                              - platform
+                              - repository
+                              - credential
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              available:
+                                type: boolean
+                              platform:
+                                type: string
+                                const: jira
+                              site:
+                                type: string
+                                pattern: ^[A-Za-z0-9][A-Za-z0-9-]*\.[Aa][Tt][Ll][Aa][Ss][Ss][Ii][Aa][Nn]\.[Nn][Ee][Tt]$
+                              project_key:
+                                type: string
+                                pattern: ^[A-Z][A-Z0-9_]{1,9}$
+                              credential:
+                                type: string
+                                minLength: 1
+                              reply_policy:
+                                type: object
+                                properties:
+                                  follows:
+                                    type: object
+                                    properties:
+                                      type:
+                                        type: string
+                                        const: assessment_passed
+                                    required:
+                                      - type
+                                    additionalProperties: false
+                                required:
+                                  - follows
+                                additionalProperties: false
+                              link_trust: {}
+                              inbox: {}
+                            required:
+                              - available
+                              - platform
+                              - site
+                              - project_key
+                              - credential
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              available:
+                                type: boolean
+                              platform:
+                                type: string
+                                const: slack
+                              team_id:
+                                type: string
+                                pattern: ^T[A-Z0-9]{2,31}$
+                              credential:
+                                type: string
+                                minLength: 1
+                              reply_policy:
+                                type: object
+                                properties:
+                                  follows:
+                                    type: object
+                                    properties:
+                                      type:
+                                        type: string
+                                        const: assessment_passed
+                                    required:
+                                      - type
+                                    additionalProperties: false
+                                required:
+                                  - follows
+                                additionalProperties: false
+                              link_trust: {}
+                              inbox: {}
+                            required:
+                              - available
+                              - platform
+                              - team_id
+                              - credential
+                            additionalProperties: false
+                    required:
+                      - kind
+                      - config
+                    additionalProperties: false
+          required:
+            - version
+            - bindings
+          additionalProperties: false
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    project.bindingSet.write.Output:
+      type: object
+      properties:
+        project_id:
+          type: string
+        binding_set_version:
+          type: integer
+          exclusiveMinimum: 0
+          maximum: 9007199254740991
+        bindings:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: object
+            properties:
+              id:
+                type: string
+              project_id:
+                type: string
+              name:
+                type: string
+              kind:
+                type: string
+                enum:
+                  - repository
+                  - worker
+                  - storage
+                  - conversation
+              resource_identity:
+                type: string
+              revision:
+                type: integer
+                exclusiveMinimum: 0
+                maximum: 9007199254740991
+              config: {}
+              created_at:
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
+              removed_at:
+                anyOf:
+                  - type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  - type: "null"
+            required:
+              - id
+              - project_id
+              - name
+              - kind
+              - resource_identity
+              - revision
+              - config
+              - created_at
+              - removed_at
+            additionalProperties: false
+        changes:
+          type: array
+          items:
+            type: object
+            properties:
+              kind:
+                type: string
+                enum:
+                  - created
+                  - revised
+                  - removed
+                  - unchanged
+              binding_id:
+                type: string
+            required:
+              - kind
+              - binding_id
+            additionalProperties: false
+        stale_pins:
+          type: array
+          items:
+            type: object
+            properties:
+              node_id:
+                type: string
+              binding_name:
+                type: string
+              pinned_revision:
+                type: integer
+                exclusiveMinimum: 0
+                maximum: 9007199254740991
+              current_revision:
+                type: integer
+                exclusiveMinimum: 0
+                maximum: 9007199254740991
+            required:
+              - node_id
+              - binding_name
+              - pinned_revision
+              - current_revision
+            additionalProperties: false
+      required:
+        - project_id
+        - binding_set_version
+        - bindings
+        - changes
+        - stale_pins
+      additionalProperties: false
